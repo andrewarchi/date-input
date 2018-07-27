@@ -3,21 +3,13 @@ import Input from '@material-ui/core/Input';
 
 const r = String.raw;
 const componentFormats = {
-  yyyy: { patterns: [r`20\d\d|19\d\d`,       r`20\d|19\d`, r`20|19`, r`[21]`], format: y => y.padEnd(4, '0') },
-  yy:   { patterns: [r`\d\d`,                r`\d`],                           format: y => getFullYear(y.padEnd(2, '0')) },
-  mm:   { patterns: [r`0[1-9]|1[0-2]`,       r`[01]`],                         format: m => m.padEnd(2, '0') },
-  dd:   { patterns: [r`0[1-9]|[12]\d|3[01]`, r`[0-3]`],                        format: d => d.padEnd(2, '0') },
-  m:    { patterns: [r`[1-9]`],                                                format: m => m.padStart(2, '0') },
-  d:    { patterns: [r`[1-9]`],                                                format: d => d.padStart(2, '0') }
+  yyyy: [r`20\d\d|19\d\d`,       r`20\d|19\d`, r`20|19`, r`[21]`],
+  yy:   [r`\d\d`,                r`\d`],
+  mm:   [r`0[1-9]|1[0-2]`,       r`[01]`],
+  dd:   [r`0[1-9]|[12]\d|3[01]`, r`[0-3]`],
+  m:    [r`[1-9]`],
+  d:    [r`[1-9]`]
 };
-
-function getFullYear(year) {
-  if (year.length !== 2) {
-    return year.padStart(4, '0');
-  }
-  const maxYear = (new Date().getFullYear() % 100) + 10;
-  return (year <= maxYear ? '20' : '19') + year;
-}
 
 class DateFormat {
   constructor(components, delim) {
@@ -25,13 +17,10 @@ class DateFormat {
     this.delim = delim;
     this.name = components.join(delim);
     this.length = components.join``.length;
-    this.formatPattern = `$1${delim}$2${delim}$3`;
-    this.patterns = this.initPatterns();
     this.dateIndices = components.map(component => 'ymd'.indexOf(component[0]));
-  }
+    this.formatPattern = `$1${delim}$2${delim}$3`;
 
-  initPatterns() {
-    const patterns = [];
+    this.patterns = [];
     for (let len = 1; len <= this.length; len++) {
       const pattern = [];
       let patternLen = 0;
@@ -41,41 +30,50 @@ class DateFormat {
           continue;
         }
         const componentIndex = Math.max(patternLen + component.length - len, 0);
-        pattern.push(componentFormats[component].patterns[componentIndex]);
+        pattern.push(componentFormats[component][componentIndex]);
         patternLen += component.length;
       }
-      patterns.push(new RegExp(`^(${pattern.join`)(`})$`));
+      this.patterns.push(new RegExp(`^(${pattern.join`)(`})$`));
     }
-    return patterns;
   }
-
 
   test(date) {
     return date.length && date.length <= this.length && this.patterns[date.length - 1].test(date);
   }
 
-  replace(date, replacement) {
+  getFormatted(date) {
     return date.length && date.length <= this.length
-      ? date.replace(this.patterns[date.length - 1], replacement)
-      : '';
+    ? date.replace(this.patterns[date.length - 1], this.formatPattern)
+    : date;
   }
 
-  getFormatted(date) {
-    return this.replace(date, this.formatPattern);
+  getDateParts(date) {
+    if (!date.length || date.length > this.length) {
+      return ['', '', ''];
+    }
+    const matches = date.match(this.patterns[date.length - 1]);
+    const dateParts = ['0000', '00', '00'];
+    for (let i = 0; i < this.components.length; i++) {
+      dateParts[this.dateIndices[i]] = matches[i + 1];
+    }
+    const [year, month, day] = dateParts;
+    return [this.getFullYear(year), month.padStart(2, '0'), day.padStart(2, '0')];
   }
 
   getDateString(date) {
-    return this.replace(date, (...matches) => {
-      const parsed = ['0000', '00', '00'];
-      for (let i = 0; i < this.components.length; i++) {
-        parsed[this.dateIndices[i]] = componentFormats[this.components[i]].format(matches[i + 1]);
-      }
-      return parsed.join`-`;
-    });
+    return this.getDateParts(date).join`-`;
   }
 
   getDate(date) {
     return new Date(this.getDateString(date));
+  }
+
+  getFullYear(year) {
+    if (year.length !== 2) {
+      return year.padStart(4, '0');
+    }
+    const maxYear = (new Date().getFullYear() % 100) + 10;
+    return (year <= maxYear ? '20' : '19') + year;
   }
 }
 
@@ -114,7 +112,7 @@ class DateInput extends React.Component {
     const matchedFormats = dateFormats.filter(format => format.test(dateValue))
     const uniqueFormats = [...new Set(matchedFormats.map(format => format.getFormatted(dateValue)))];
     const value = uniqueFormats.length === 1 ? uniqueFormats[0] : dateValue;
-    if (matchedFormats.length === 1) {
+    if (matchedFormats.length === 1 && matchedFormats[0].length === dateValue.length) {
       console.log(value, matchedFormats[0].getDate(dateValue));
     }
 

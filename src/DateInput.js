@@ -113,52 +113,36 @@ class DateInput extends React.Component {
     this.setState({ value });
   }
 
+  getFormats(date) {
+    const formats = dateFormats.filter(format => format.test(date));
+    const formatted = formats.map(format => format.getFormatted(date));
+    const ambiguous = formats.length >= 2 && !formatted.slice(1).every(f => f === formatted[0]);
+    return { formats, formatted, ambiguous };
+  }
+
   handleChange = e => {
-    const dateValue = this.getValue(e.target);
+    let value = this.getValue(e.target);
+    const date = value;
 
-    logFormats(dateValue);
+    logFormats(date);
 
-    const matchedFormats = dateFormats.filter(format => format.test(dateValue));
-    if (!matchedFormats.length) {
-      // No matched formats
+    const { formats, formatted, ambiguous } = this.getFormats(date);
+    console.log(this.getFormats(date))
+    if (!formats.length) {
       console.log('No formats match');
-      this.setState({
-        value: e.target.value,
-        parsed: '',
-        date: null,
-        invalid: true,
-        pristine: false,
-        ambiguous: false
-      });
+      this.setState({ parsed: '', date: null, invalid: true });
+    }
+    else if (!ambiguous) {
+      console.log('Matched format');
+      value = formatted[0];
+      this.setState({ parsed: value, date: formats[0].getDate(date), invalid: false });
     }
     else {
-      const formatted = matchedFormats[0].getFormatted(dateValue);
-      if (matchedFormats.length === 1 || matchedFormats.slice(1).every(format => format.getFormatted(dateValue) === formatted)) {
-        // Every matched format is the same
-        console.log('Matched format');
-        e.target.value = formatted;
-        this.setState({
-          value: formatted,
-          parsed: formatted,
-          date: matchedFormats[0].getDate(dateValue),
-          invalid: false,
-          pristine: false,
-          ambiguous: false
-        });
-      }
-      else {
-        // Multiple matched formats => ambiguous
-        console.log('Ambiguous formats');
-        this.setState({
-          value: e.target.value,
-          parsed: '',
-          date: null,
-          invalid: false,
-          pristine: false,
-          ambiguous: true
-        });
-      }
+      console.log('Ambiguous formats');
+      this.setState({ parsed: '', date: null, invalid: false });
     }
+    this.setState({ value, ambiguous, pristine: false });
+    e.target.value = value;
 
     /*const endDelim = value.match(/[^\d]{2,}$/);
     if (endDelim && endDelim[0].length > 1) {

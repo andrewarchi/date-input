@@ -47,8 +47,8 @@ class DateFormat {
 
   getFormatted(date) {
     return date.length && date.length <= this.length
-    ? date.replace(this.patterns[date.length - 1], this.formatPattern)
-    : date;
+      ? date.replace(this.patterns[date.length - 1], this.formatPattern)
+      : date;
   }
 
   getDateParts(date) {
@@ -117,23 +117,53 @@ class DateInput extends React.Component {
     const dateValue = this.getValue(e.target);
 
     logFormats(dateValue);
+
     const matchedFormats = dateFormats.filter(format => format.test(dateValue));
-    const uniqueFormats = [...new Set(matchedFormats.map(format => format.getFormatted(dateValue)))];
-    const value = uniqueFormats.length === 1 ? uniqueFormats[0] : dateValue;
-    if (matchedFormats.length === 1 && matchedFormats[0].length === dateValue.length) {
-      this.setState({ parsed: value, date: matchedFormats[0].getDate(dateValue) });
+    if (!matchedFormats.length) {
+      // No matched formats
+      console.log('No formats match');
+      this.setState({
+        value: e.target.value,
+        parsed: '',
+        date: null,
+        invalid: true,
+        pristine: false,
+        ambiguous: false
+      });
     }
     else {
-      this.setState({ parsed: '', date: null });
+      const formatted = matchedFormats[0].getFormatted(dateValue);
+      if (matchedFormats.length === 1 || matchedFormats.slice(1).every(format => format.getFormatted(dateValue) === formatted)) {
+        // Every matched format is the same
+        console.log('Matched format');
+        e.target.value = formatted;
+        this.setState({
+          value: formatted,
+          parsed: formatted,
+          date: matchedFormats[0].getDate(dateValue),
+          invalid: false,
+          pristine: false,
+          ambiguous: false
+        });
+      }
+      else {
+        // Multiple matched formats => ambiguous
+        console.log('Ambiguous formats');
+        this.setState({
+          value: e.target.value,
+          parsed: '',
+          date: null,
+          invalid: false,
+          pristine: false,
+          ambiguous: true
+        });
+      }
     }
 
-    e.target.value = value;
-    const endDelim = value.match(/[^\d]{2,}$/);
+    /*const endDelim = value.match(/[^\d]{2,}$/);
     if (endDelim && endDelim[0].length > 1) {
       this.setCaretPosition(e.target, value.length - endDelim[0].length + 1);
-    }
-
-    this.setState({ value: value, invalid: value === dateValue, pristine: false, ambiguous: matchedFormats.length > 1 });
+    }*/
   }
 
   handleKeyDown = e => {

@@ -4,7 +4,7 @@ import Input from '@material-ui/core/Input';
 const r = String.raw;
 const componentFormats = {
   yyyy: { patterns: [r`20\d\d|19\d\d`,       r`20\d|19\d`, r`20|19`, r`[21]`], format: y => y.padEnd(4, '0') },
-  yy:   { patterns: [r`\d\d`,                r`\d`],                           format: y => getFullYear(y.padStart(2, '0')) },
+  yy:   { patterns: [r`\d\d`,                r`\d`],                           format: y => getFullYear(y.padEnd(2, '0')) },
   mm:   { patterns: [r`0[1-9]|1[0-2]`,       r`[01]`],                         format: m => m.padEnd(2, '0') },
   dd:   { patterns: [r`0[1-9]|[12]\d|3[01]`, r`[0-3]`],                        format: d => d.padEnd(2, '0') },
   m:    { patterns: [r`[1-9]`],                                                format: m => m.padStart(2, '0') },
@@ -27,7 +27,7 @@ class DateFormat {
     this.length = components.join``.length;
     this.formatPattern = `$1${delim}$2${delim}$3`;
     this.patterns = this.initPatterns();
-    this.dateIndices = this.initDateIndices(components);
+    this.dateIndices = components.map(component => 'ymd'.indexOf(component[0]));
   }
 
   initPatterns() {
@@ -49,35 +49,33 @@ class DateFormat {
     return patterns;
   }
 
-  initDateIndices(components) {
-    return components.map(component => {
-      switch (component[0]) {
-        case 'y': return 0;
-        case 'm': return 1;
-        case 'd': return 2;
-        default: return 0;
-      }
-    });
-  }
 
   test(date) {
     return date.length && date.length <= this.length && this.patterns[date.length - 1].test(date);
   }
 
-  getFormatted(date) {
+  replace(date, replacement) {
     return date.length && date.length <= this.length
-      ? date.replace(this.patterns[date.length - 1], this.formatPattern)
-      : date;
+      ? date.replace(this.patterns[date.length - 1], replacement)
+      : '';
   }
 
-  getDate(date) {
-    return date.replace(this.patterns[date.length - 1], (...matches) => {
+  getFormatted(date) {
+    return this.replace(date, this.formatPattern);
+  }
+
+  getDateString(date) {
+    return this.replace(date, (...matches) => {
       const parsed = ['0000', '00', '00'];
       for (let i = 0; i < this.components.length; i++) {
         parsed[this.dateIndices[i]] = componentFormats[this.components[i]].format(matches[i + 1]);
       }
       return parsed.join`-`;
     });
+  }
+
+  getDate(date) {
+    return new Date(this.getDateString(date));
   }
 }
 

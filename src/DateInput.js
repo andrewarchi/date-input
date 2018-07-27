@@ -3,12 +3,12 @@ import Input from '@material-ui/core/Input';
 
 const r = String.raw;
 const segmentFormats = {
-  yyyy: r`(20\d\d|19\d\d)`,
-  yy:   r`(\d\d)`,
-  mm:   r`(0[1-9]|1[0-2])`,
-  dd:   r`(0[1-9]|[12]\d|3[01])`,
-  m:    r`([1-9])`,
-  d:    r`([1-9])`
+  yyyy: [r`20\d\d|19\d\d`,       r`20\d|19\d`, r`20|19`, r`[21]`],
+  yy:   [r`\d\d`,                r`\d`],
+  mm:   [r`0[1-9]|1[0-2]`,       r`[01]`],
+  dd:   [r`0[1-9]|[12]\d|3[01]`, r`[0-3]`],
+  m:    [r`[1-9]`],
+  d:    [r`[1-9]`],
 };
 
 class DateFormat {
@@ -16,17 +16,40 @@ class DateFormat {
     this.segments = segments;
     this.delim = delim;
     this.length = length;
-    this.pattern = new RegExp('^' + segments.map(s => segmentFormats[s]).join`` + '$');
-    this.replacePattern = `$1${delim}$2${delim}$3`;
     this.name = segments.join(delim);
+    this.replacePattern = `$1${delim}$2${delim}$3`;
+    this.initPatterns();
+  }
+
+  initPatterns() {
+    const patterns = [];
+    for (let len = 1; len <= this.length; len++) {
+      const pattern = [];
+      let patternLen = 0;
+      for (const segment of this.segments) {
+        if (patternLen === len) {
+          pattern.push('');
+          continue;
+        }
+        const segmentIndex = Math.max(patternLen + segment.length - len, 0);
+        pattern.push(segmentFormats[segment][segmentIndex]);
+        patternLen += segment.length;
+      }
+      patterns.push(new RegExp(`^(${pattern.join`)(`})$`));
+    }
+    this.patterns = patterns;
   }
 
   test(date) {
-    return this.pattern.test(date);
+    return date.length && date.length <= this.length
+      ? this.patterns[date.length - 1].test(date)
+      : false;
   }
 
   getFormatted(date) {
-    return date.replace(this.pattern, this.replacePattern);
+    return date.length && date.length <= this.length
+      ? date.replace(this.patterns[date.length - 1], this.replacePattern)
+      : date;
   }
 }
 
@@ -42,8 +65,8 @@ const dateFormats = [
   new DateFormat(['m', 'd', 'yy'],     '/', 4)
 ];
 
+console.log(dateFormats);
 
-console.log(dateFormats)
 class DateInput extends React.Component {
   state = {
     value: ''
@@ -51,13 +74,22 @@ class DateInput extends React.Component {
 
   handleChange = e => {
     const dateValue = e.target.value.replace(/[^\d]/g, '');
+
     console.log(dateValue);
-    for (const format of dateFormats) {
-      if (format.test(dateValue)) {
-        console.log(format.name, '\t', format.getFormatted(dateValue));
-        e.target.value = format.getFormatted(dateValue);
-      }
-    }
+    console.log(dateFormats.map(format => [
+      format.test(dateValue),
+      format.name.padEnd(8),
+      (format.test(dateValue) ? format.getFormatted(dateValue) : '').padEnd(8),
+      format.test(dateValue) ? (format.length === dateValue.length ? 'complete' : 'partial') : ''
+    ].join`\t`).join`\n`);
+
+    const formats = dateFormats
+      .filter(format => format.test(dateValue))
+      .map(format => format.getFormatted(dateValue))
+      .reduce((acc, curr) => acc.includes(curr) ? acc : [...acc, curr], []);
+    e.target.value = formats.length === 1 ? formats[0] : dateValue;
+    console.log(formats);
+
     this.setState({ value: e.target.value });
   }
 

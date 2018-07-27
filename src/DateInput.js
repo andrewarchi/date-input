@@ -37,6 +37,10 @@ class DateFormat {
     }
   }
 
+  testEntire(date) {
+    return date.length === this.length && this.patterns[this.length - 1].test(date);
+  }
+
   test(date) {
     return date.length && date.length <= this.length && this.patterns[date.length - 1].test(date);
   }
@@ -89,31 +93,38 @@ const dateFormats = [
   new DateFormat(['m', 'd', 'yy'],     '/')
 ];
 
-console.log(dateFormats);
-
 class DateInput extends React.Component {
   state = {
     value: '',
+    parsed: '',
+    date: null,
     invalid: true,
-    pristine: true
+    pristine: true,
+    ambiguous: false
   };
 
+  getValue(elem) {
+    return elem.value.replace(/[^\d]/g, '');
+  }
+
+  formatValue(elem, dateFormat) {
+    const value = dateFormat.getFormatted(this.getValue(elem));
+    elem.value = value;
+    this.setState({ value });
+  }
+
   handleChange = e => {
-    const dateValue = e.target.value.replace(/[^\d]/g, '');
+    const dateValue = this.getValue(e.target);
 
-    console.log(dateValue);
-    console.log(dateFormats.map(format => [
-      format.test(dateValue),
-      format.name.padEnd(8),
-      (format.test(dateValue) ? format.getFormatted(dateValue) : '').padEnd(11),
-      format.test(dateValue) ? (format.length === dateValue.length ? 'complete' : 'partial') : ''
-    ].join`\t`).join`\n`);
-
-    const matchedFormats = dateFormats.filter(format => format.test(dateValue))
+    logFormats(dateValue);
+    const matchedFormats = dateFormats.filter(format => format.test(dateValue));
     const uniqueFormats = [...new Set(matchedFormats.map(format => format.getFormatted(dateValue)))];
     const value = uniqueFormats.length === 1 ? uniqueFormats[0] : dateValue;
     if (matchedFormats.length === 1 && matchedFormats[0].length === dateValue.length) {
-      console.log(value, matchedFormats[0].getDate(dateValue));
+      this.setState({ parsed: value, date: matchedFormats[0].getDate(dateValue) });
+    }
+    else {
+      this.setState({ parsed: '', date: null });
     }
 
     e.target.value = value;
@@ -122,7 +133,7 @@ class DateInput extends React.Component {
       this.setCaretPosition(e.target, value.length - endDelim[0].length + 1);
     }
 
-    this.setState({ value: value, invalid: value === dateValue, pristine: false });
+    this.setState({ value: value, invalid: value === dateValue, pristine: false, ambiguous: matchedFormats.length > 1 });
   }
 
   handleKeyDown = e => {
@@ -142,30 +153,58 @@ class DateInput extends React.Component {
     e.target.select();
   }
 
-  setCaretPosition(elem, caretPos) {
+  handleBlur = e => {
+    const dateValue = this.getValue(e.target);
+    const formats = dateFormats.filter(format => format.testEntire(dateValue));
+    if (formats.length === 1) {
+      this.formatValue(e.target, formats[0]);
+    }
+  }
+
+  setCaretPosition(elem, position) {
     if (elem.createTextRange) {
       const range = elem.createTextRange();
-      range.move('character', caretPos);
+      range.move('character', position);
       range.select();
     }
     else if (elem.setSelectionRange) {
-      elem.setSelectionRange(caretPos, caretPos);
+      elem.setSelectionRange(position, position);
     }
   }
 
   render() {
-    const { value, invalid, pristine } = this.state;
-    return (
+    const { value, parsed, date, invalid, pristine, ambiguous } = this.state;
+    return <React.Fragment>
       <Input
         value={value}
         error={invalid && !pristine}
+        placeholder="Enter a date"
         onFocus={this.handleFocus}
         onBlur={this.handleBlur}
         onChange={this.handleChange}
         onKeyDown={this.handleKeyDown}
       />
-    );
+      <input type="date" />
+      <p><strong>Parsed:</strong> {parsed}</p>
+      <p><strong>Date:</strong> {date + ''}</p>
+      {ambiguous && <p style={{color: 'red'}}>Ambiguous</p>}
+    </React.Fragment>
   }
+}
+
+console.log(dateFormats);
+
+function logFormats(dateValue) {
+  console.log(dateValue);
+  console.log(dateFormats.map(format => {
+    const test = format.test(dateValue);
+    const name = format.name.padEnd(8);
+    return test ? [
+      name,
+      format.getFormatted(dateValue).padEnd(11),
+      format.length === dateValue.length ? 'complete' : 'partial'
+    ].join`\t` : name;
+  }).join`\n`);
 }
 
 export default DateInput;

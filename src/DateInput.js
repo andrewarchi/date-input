@@ -2,42 +2,60 @@ import React from 'react';
 import Input from '@material-ui/core/Input';
 
 const r = String.raw;
-const yyyy = r`(20\d\d|19\d\d)`;
-const yy   = r`(\d\d)`;
-const mm   = r`(0[1-9]|1[0-2])`;
-const dd   = r`(0[1-9]|[12]\d|3[01])`;
-const m    = r`([1-9])`;
-const d    = r`([1-9])`;
+const segmentFormats = {
+  yyyy: r`(20\d\d|19\d\d)`,
+  yy:   r`(\d\d)`,
+  mm:   r`(0[1-9]|1[0-2])`,
+  dd:   r`(0[1-9]|[12]\d|3[01])`,
+  m:    r`([1-9])`,
+  d:    r`([1-9])`
+};
 
-const re = (...args) => new RegExp(`^${String.raw(...args)}$`);
-const formats = [
-  { name: 'YYYY-MM-DD', pattern: re`${yyyy}${mm}${dd}`, format: '$1-$2-$3', length: 8 },
-  { name: 'MM/DD/YYYY', pattern: re`${mm}${dd}${yyyy}`, format: '$1/$2/$3', length: 8 },
-  { name: 'M/DD/YYYY',  pattern: re`${m}${dd}${yyyy}`,  format: '$1/$2/$3', length: 7 },
-  { name: 'MM/D/YYYY',  pattern: re`${mm}${d}${yyyy}`,  format: '$1/$2/$3', length: 7 },
-  { name: 'M/D/YYYY',   pattern: re`${m}${d}${yyyy}`,   format: '$1/$2/$3', length: 6 },
-  { name: 'MM/DD/YY',   pattern: re`${mm}${dd}${yy}`,   format: '$1/$2/$3', length: 6 },
-  { name: 'M/DD/YY',    pattern: re`${m}${dd}${yy}`,    format: '$1/$2/$3', length: 5 },
-  { name: 'MM/D/YY',    pattern: re`${mm}${d}${yy}`,    format: '$1/$2/$3', length: 5 },
-  { name: 'M/D/YY',     pattern: re`${m}${d}${yy}`,     format: '$1/$2/$3', length: 4 }
+class DateFormat {
+  constructor(segments, delim, length) {
+    this.segments = segments;
+    this.delim = delim;
+    this.length = length;
+    this.pattern = new RegExp('^' + segments.map(s => segmentFormats[s]).join`` + '$');
+    this.replacePattern = `$1${delim}$2${delim}$3`;
+    this.name = segments.join(delim);
+  }
+
+  test(date) {
+    return this.pattern.test(date);
+  }
+
+  getFormatted(date) {
+    return date.replace(this.pattern, this.replacePattern);
+  }
+}
+
+const dateFormats = [
+  new DateFormat(['yyyy', 'mm', 'dd'], '-', 8),
+  new DateFormat(['mm', 'dd', 'yyyy'], '/', 8),
+  new DateFormat(['m', 'dd', 'yyyy'],  '/', 7),
+  new DateFormat(['mm', 'd', 'yyyy'],  '/', 7),
+  new DateFormat(['m', 'd', 'yyyy'],   '/', 6),
+  new DateFormat(['mm', 'dd', 'yy'],   '/', 6),
+  new DateFormat(['m', 'dd', 'yy'],    '/', 5),
+  new DateFormat(['mm', 'd', 'yy'],    '/', 5),
+  new DateFormat(['m', 'd', 'yy'],     '/', 4)
 ];
 
+
+console.log(dateFormats)
 class DateInput extends React.Component {
   state = {
     value: ''
   };
 
   handleChange = e => {
-    const value = e.target.value.replace(/[^\d]/g, '');
-    for (const format of formats) {
-      if (value.length === format.length && format.pattern.test(value)) {
-        console.log(format.name, '\t', value.replace(format.pattern, format.format));
-        e.target.value = value.replace(format.pattern, format.format);
-        break;
-      }
-      else if (value.length > format.length) {
-        e.target.value = value;
-        break;
+    const dateValue = e.target.value.replace(/[^\d]/g, '');
+    console.log(dateValue);
+    for (const format of dateFormats) {
+      if (format.test(dateValue)) {
+        console.log(format.name, '\t', format.getFormatted(dateValue));
+        e.target.value = format.getFormatted(dateValue);
       }
     }
     this.setState({ value: e.target.value });

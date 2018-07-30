@@ -100,7 +100,8 @@ class DateInput extends React.Component {
     date: null,
     invalid: true,
     pristine: true,
-    ambiguous: false
+    ambiguous: false,
+    formats: dateFormats
   };
 
   getValue(elem) {
@@ -120,7 +121,12 @@ class DateInput extends React.Component {
     return { formats, formatted, ambiguous };
   }
 
+  isLeapYear(year) {
+    return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  }
+
   handleChange = e => {
+    console.log(e.target.value)
     let value = this.getValue(e.target);
     const date = value;
 
@@ -129,17 +135,25 @@ class DateInput extends React.Component {
     const { formats, formatted, ambiguous } = this.getFormats(date);
     console.log(this.getFormats(date))
     if (!formats.length) {
-      console.log('No formats match');
-      this.setState({ parsed: '', date: null, invalid: true });
+      this.setState({ parsed: '', date: null, invalid: true, error: 'Invalid format' });
     }
     else if (!ambiguous) {
-      console.log('Matched format');
       value = formatted[0];
-      this.setState({ parsed: value, date: formats[0].getDate(date), invalid: false });
+      const [ year, month, day ] = formats[0].getDateParts(date);
+      const m = +month, d = +day;
+      if ((d === 31 && (m === 4 || m === 6 || m === 9 || m === 11)) || (m === 2 && d > 29)) {
+        this.setState({ parsed: '', date: null, invalid: true, error: 'Day is too large' });
+      }
+      else if (m === 2 && d === 29 && !this.isLeapYear(year)) {
+        this.setState({ parsed: '', date: null, invalid: true, error: 'Not a leap year' });
+      }
+      else {
+        this.setState({ parsed: value, date: formats[0].getDate(date), invalid: false, error: '' });
+      }
     }
     else {
       console.log('Ambiguous formats');
-      this.setState({ parsed: '', date: null, invalid: false });
+      this.setState({ parsed: '', date: null, invalid: false, error: '' });
     }
     this.setState({ value, ambiguous, pristine: false });
     e.target.value = value;
@@ -151,16 +165,22 @@ class DateInput extends React.Component {
   }
 
   handleKeyDown = e => {
-    if (e.key === 'Escape' || e.key === 'Esc' || e.keyCode === 27) {
-      this.setState({ currentValue: this.state.savedValue, cursorPosition: 0 });
-      return;
-    }
     if ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 96 && e.keyCode <= 105)) {
+      console.log('number')
     }
-    else {
-      //e.preventDefault();
-      return;
+    else if ((e.key === '/' || e.keyCode === 111 || e.keyCode === 191) || (e.key === '-' || e.keyCode === 109 || e.keyCode === 189)) {
+
     }
+    else if (e.key === 'Backspace' || e.keyCode === 8) {
+      if (e.target.selectionStart === e.target.selectionEnd && !/\d/.test(e.target.value[e.target.selectionStart-1])) {
+        e.target.selectionStart--;
+        e.target.selectionEnd--;
+        e.preventDefault();
+      }
+    }
+    //e.key === 'Tab' || e.keyCode === 9
+    //e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'ArrowRight' || e.key === 'ArrowDown' || (e.keyCode >= 37 && e.keyCode <= 40)
+    //e.key === 'Escape' || e.key === 'Esc' || e.keyCode === 27
   }
 
   handleFocus = e => {
@@ -187,7 +207,7 @@ class DateInput extends React.Component {
   }
 
   render() {
-    const { value, parsed, date, invalid, pristine, ambiguous } = this.state;
+    const { value, parsed, date, invalid, pristine, ambiguous, error } = this.state;
     return <React.Fragment>
       <Input
         value={value}
@@ -201,6 +221,7 @@ class DateInput extends React.Component {
       <input type="date" />
       <p><strong>Parsed:</strong> {parsed}</p>
       <p><strong>Date:</strong> {date + ''}</p>
+      {error && <p style={{color: 'red'}}>{error}</p>}
       {ambiguous && <p style={{color: 'red'}}>Ambiguous</p>}
     </React.Fragment>
   }

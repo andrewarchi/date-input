@@ -242,4 +242,72 @@ function logFormats(dateValue) {
   }).join`\n`);
 }
 
+function logConflicts(year) {
+  const year4 = year.toString();
+  const year2 = year4.slice(-2);
+  const days = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const dates = [];
+  const pad2 = a => a.toString().padStart(2, '0');
+  for (let month = 1; month <= 12; month++) {
+    for (let day = 1; day <= days[month-1]; day++) {
+      let formatted = '';
+      let yyyymmdd = '';
+      let mmddyyyy = '';
+      let mddyyyy = '';
+      let mmdyyyy = '';
+      let mdyyyy = '';
+      let mmddyy = '';
+      let mddyy = '';
+      let mmdyy = '';
+      let mdyy = '';
+      if (month < 10) {
+        if (day < 10) {
+          mdyy = '' + month + day + year2;
+          mdyyyy = '' + month + day + year4;
+        }
+        mddyy = '' + month + pad2(day) + year2;
+        mddyyyy = '' + month + pad2(day) + year4;
+      }
+      if (day < 10) {
+        mmdyy = pad2(month) + day + year2;
+        mmdyyyy = pad2(month) + day + year4;
+      }
+      mmddyy = pad2(month) + pad2(day) + year2;
+      mmddyyyy = pad2(month) + pad2(day) + year4;
+      yyyymmdd = year4 + pad2(month) + pad2(day);
+      formatted = pad2(month) + '/' + pad2(day) + '/' + year4;
+      dates.push({ formatted, inputs: {
+        'yyyy-mm-dd': yyyymmdd,
+        'mm/dd/yyyy': mmddyyyy,
+        'm/dd/yyyy': mddyyyy,
+        'mm/d/yyyy': mmdyyyy,
+        'm/d/yyyy': mdyyyy,
+        'mm/dd/yy': mmddyy,
+        'm/dd/yy': mddyy,
+        'mm/d/yy': mmdyy,
+        'm/d/yy': mdyy
+      }});
+    }
+  }
+  console.log(dates);
+  const conflicts = {};
+  for (const date of dates) {
+    for (const key in date.inputs) {
+      for (const format of dateFormats) {
+        if (format.name !== key && format.testEntire(date.inputs[key])) {
+          if (!date.conflicts) { date.conflicts = {}; }
+          if (!date.conflicts[key]) { date.conflicts[key] = []; }
+          date.conflicts[key].push(format.name);
+          if (!conflicts[key]) { conflicts[key] = {}; }
+          if (!conflicts[key][format.name]) { conflicts[key][format.name] = 0; }
+          conflicts[key][format.name]++;
+        }
+      }
+    }
+  }
+  console.log(dates);
+  console.log(conflicts);
+}
+logConflicts(2018);
+
 export default DateInput;

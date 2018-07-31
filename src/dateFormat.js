@@ -1,14 +1,14 @@
 class DateFormat {
-  constructor(id, delim, blockSizes) {
-    this.id = id;
+  constructor(blocks, delim) {
+    this.blocks = blocks;
+    this.blockSizes = blocks.map(b => b.length);
     this.delim = delim;
-    this.blockSizes = blockSizes;
   }
 
   join(blocks) {
     let formatted = blocks[0];
     for (let i = 1; i < blocks.length; i++) {
-      if (blocks[i] !== '' || blocks[i - 1].length === this.blockSizes[i - 1]) {
+      if (blocks[i] !== '' || blocks[i - 1].length === this.blocks[i - 1].length) {
         formatted += this.delim + blocks[i];
       }
     }
@@ -21,43 +21,54 @@ class DateFormat {
       day > 0 && day <= getDaysInMonth(+month, +year) &&
       year >= 1900 && year <= 2999;
   }
+
+  insertDelim(value, position) {
+    const sanitized = sanitizeDelims(value);
+    position = getSanitizedPosition(value, position);
+    let blockStart = 0;
+    let blockEnd = 0;
+    for (let i = 0; i < this.blocks.length; i++) {
+      const block = this.blocks[i];
+      blockEnd += block.length;
+      if (block !== 'yyyy' && position > blockStart && position < blockEnd && sanitized.slice(blockStart, position) > 0) {
+        return sanitized.slice(0, blockStart) + '|' + sanitized.slice(blockStart, position).padStart(block.length, '0') + '|' + sanitized.slice(position);
+      }
+      blockStart += block.length;
+    }
+    return sanitized;
+  }
 }
 
 export class MDY extends DateFormat {
   constructor() {
-    super('mdy', '/', [2, 2, 4]);
+    super(['mm', 'dd', 'yyyy'], '/');
   }
 
   parseInput(value) {
-    const [ month, rest1 ] = parseMonth(value);
+    const [ month, rest1 ] = parseMonth(sanitizeDelims(value));
     const [ day, rest2 ] = parseDay(rest1, +month);
     const [ year ] = parseYear(rest2, true);
     return [ month, day, year ];
   }
 
   paste(value) {}
-  insertDelim(position) {}
 
   isValid(blocks) {
     const [ month, day, year ] = blocks;
-    return super.isValid(year, month, day);
+    return super.isValid([ year, month, day ]);
   }
 }
 
 export class YMD extends DateFormat {
   constructor() {
-    super('ymd', '-', [4, 2, 2]);
+    super(['yyyy', 'mm', 'dd'], '-');
   }
 
   parseInput(value) {
-    const [ year, rest1 ] = parseYear(value, false);
+    const [ year, rest1 ] = parseYear(sanitizeDelims(value), false);
     const [ month, rest2 ] = parseMonth(rest1);
     const [ day ] = parseDay(rest2, +month, +year);
     return [ year, month, day ];
-  }
-
-  isValid(blocks) {
-    return super.isValid(...blocks);
   }
 }
 
@@ -97,8 +108,12 @@ function isLeapYear(year) {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 }
 
-function getCleanIndex(value, index) {
-  return index - (value.slice(0, index).match(/[^\d]/g) || []).length;
+function sanitizeDelims(value) {
+  return value.replace(/[^\d]/g, '');
+}
+
+function getSanitizedPosition(value, position) {
+  return position - (value.slice(0, position).match(/[^\d]/g) || []).length;
 }
 
 /*const mdy = new MDY();
@@ -108,3 +123,18 @@ console.log([...Array(999999)].map((a, i) => {
   const ymdBlocks = ymd.parseInput(i+'');
   return [mdy.join(mdyBlocks), mdy.isValid(mdyBlocks), ymd.join(ymdBlocks), ymd.isValid(ymdBlocks)];
 }));*/
+
+const mdy = new MDY();
+const ymd = new YMD();
+console.log([
+  ['1/23/45', 1],
+  ['0/12/34', 1],
+  ['12/34/56', 1],
+  ['1/23/45', 2],
+  ['0/12/34', 2],
+  ['12/34/56', 3]
+].map(a => {
+  const insertedMDY = mdy.insertDelim(a[0], a[1]);
+  const insertedYMD = ymd.insertDelim(a[0], a[1]);
+  return [...a, insertedMDY, mdy.join(mdy.parseInput(insertedMDY)), insertedYMD, ymd.join(ymd.parseInput(insertedYMD))];
+}));

@@ -1,186 +1,54 @@
 import React from 'react';
 import Input from '@material-ui/core/Input';
+import { MDY, YMD } from './dateFormat';
 
-const r = String.raw;
-const componentFormats = {
-  yyyy: [r`20\d\d|19\d\d`,       r`20\d|19\d`, r`20|19`, r`[21]`],
-  yy:   [r`\d\d`,                r`\d`],
-  mm:   [r`0[1-9]|1[0-2]`,       r`[01]`],
-  dd:   [r`0[1-9]|[12]\d|3[01]`, r`[0-3]`],
-  m:    [r`[1-9]`],
-  d:    [r`[1-9]`]
-};
-
-class DateFormat {
-  constructor(components, delim) {
-    this.components = components;
-    this.delim = delim;
-    this.name = components.join(delim);
-    this.length = components.join``.length;
-    this.dateIndices = components.map(component => 'ymd'.indexOf(component[0]));
-    this.formatPattern = `$1${delim}$2${delim}$3`;
-
-    this.patterns = [];
-    for (let len = 1; len <= this.length; len++) {
-      const pattern = [];
-      let patternLen = 0;
-      for (const component of this.components) {
-        if (patternLen === len) {
-          pattern.push('');
-          continue;
-        }
-        const componentIndex = Math.max(patternLen + component.length - len, 0);
-        pattern.push(componentFormats[component][componentIndex]);
-        patternLen += component.length;
-      }
-      this.patterns.push(new RegExp(`^(${pattern.join`)(`})$`));
-    }
-  }
-
-  testEntire(date) {
-    return date.length === this.length && this.patterns[this.length - 1].test(date);
-  }
-
-  test(date) {
-    return date.length && date.length <= this.length && this.patterns[date.length - 1].test(date);
-  }
-
-  getFormatted(date) {
-    return date.length && date.length <= this.length
-      ? date.replace(this.patterns[date.length - 1], this.formatPattern)
-      : date;
-  }
-
-  getDateParts(date) {
-    if (!date.length || date.length > this.length) {
-      return ['', '', ''];
-    }
-    const matches = date.match(this.patterns[date.length - 1]);
-    const dateParts = ['0000', '00', '00'];
-    for (let i = 0; i < this.components.length; i++) {
-      dateParts[this.dateIndices[i]] = matches[i + 1];
-    }
-    const [year, month, day] = dateParts;
-    return [this.getFullYear(year), month.padStart(2, '0'), day.padStart(2, '0')];
-  }
-
-  getDateString(date) {
-    return this.getDateParts(date).join`-`;
-  }
-
-  getDate(date) {
-    return new Date(this.getDateString(date));
-  }
-
-  getFullYear(year) {
-    if (year.length !== 2) {
-      return year.padStart(4, '0');
-    }
-    const maxYear = (new Date().getFullYear() % 100) + 10;
-    return (year <= maxYear ? '20' : '19') + year;
-  }
-}
-
-const dateFormats = [
-  new DateFormat(['yyyy', 'mm', 'dd'], '-'),
-  new DateFormat(['mm', 'dd', 'yyyy'], '/'),
-  new DateFormat(['m', 'dd', 'yyyy'],  '/'),
-  new DateFormat(['mm', 'd', 'yyyy'],  '/'),
-  new DateFormat(['m', 'd', 'yyyy'],   '/'),
-  new DateFormat(['mm', 'dd', 'yy'],   '/'),
-  new DateFormat(['m', 'dd', 'yy'],    '/'),
-  new DateFormat(['mm', 'd', 'yy'],    '/'),
-  new DateFormat(['m', 'd', 'yy'],     '/')
-];
+const mdy = new MDY();
+const ymd = new YMD();
 
 class DateInput extends React.Component {
   state = {
     value: '',
-    parsed: '',
-    date: null,
-    invalid: true,
-    pristine: true,
-    ambiguous: false,
-    formats: dateFormats
+    valueMDY: '',
+    valueYMD: ''
   };
 
-  getValue(elem) {
-    return elem.value.replace(/[^\d]/g, '');
-  }
-
-  formatValue(elem, dateFormat) {
-    const value = dateFormat.getFormatted(this.getValue(elem));
-    elem.value = value;
-    this.setState({ value });
-  }
-
-  getFormats(date) {
-    const formats = dateFormats.filter(format => format.test(date));
-    const formatted = formats.map(format => format.getFormatted(date));
-    const ambiguous = formats.length >= 2 && !formatted.slice(1).every(f => f === formatted[0]);
-    return { formats, formatted, ambiguous };
-  }
-
-  isLeapYear(year) {
-    return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-  }
 
   handleChange = e => {
-    console.log(e.target.value)
-    let value = this.getValue(e.target);
-    const date = value;
+    console.log(e.target.value);
 
-    logFormats(date);
+    const value = e.target.value.replace(/[^\d]/g, '');
+    const valueMDY = mdy.join(mdy.parseInput(e.target.value));
+    const valueYMD = ymd.join(ymd.parseInput(e.target.value));
 
-    const { formats, formatted, ambiguous } = this.getFormats(date);
-    console.log(this.getFormats(date))
-    if (!formats.length) {
-      this.setState({ parsed: '', date: null, invalid: true, error: 'Invalid format' });
-    }
-    else if (!ambiguous) {
-      value = formatted[0];
-      const [ year, month, day ] = formats[0].getDateParts(date);
-      const m = +month, d = +day;
-      if ((d === 31 && (m === 4 || m === 6 || m === 9 || m === 11)) || (m === 2 && d > 29)) {
-        this.setState({ parsed: '', date: null, invalid: true, error: 'Day is too large' });
-      }
-      else if (m === 2 && d === 29 && !this.isLeapYear(year)) {
-        this.setState({ parsed: '', date: null, invalid: true, error: 'Not a leap year' });
-      }
-      else {
-        this.setState({ parsed: value, date: formats[0].getDate(date), invalid: false, error: '' });
-      }
-    }
-    else {
-      console.log('Ambiguous formats');
-      this.setState({ parsed: '', date: null, invalid: false, error: '' });
-    }
-    this.setState({ value, ambiguous, pristine: false });
-    e.target.value = value;
-
-    /*const endDelim = value.match(/[^\d]{2,}$/);
-    if (endDelim && endDelim[0].length > 1) {
-      this.setCaretPosition(e.target, value.length - endDelim[0].length + 1);
-    }*/
+    this.setState({ value, valueMDY, valueYMD });
   }
 
-  handleKeyDown = e => {
-    if ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 96 && e.keyCode <= 105)) {
-      console.log('number')
-    }
-    else if ((e.key === '/' || e.keyCode === 111 || e.keyCode === 191) || (e.key === '-' || e.keyCode === 109 || e.keyCode === 189)) {
-
-    }
-    else if (e.key === 'Backspace' || e.keyCode === 8) {
-      if (e.target.selectionStart === e.target.selectionEnd && !/\d/.test(e.target.value[e.target.selectionStart-1])) {
-        e.target.selectionStart--;
-        e.target.selectionEnd--;
-        e.preventDefault();
+  handleKeyDown(format) {
+    return e => {
+      if (e.target.selectionStart === e.target.selectionEnd) {
+        if ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 96 && e.keyCode <= 105)) {
+          // Number
+        }
+        if (e.key === '/' || e.keyCode === 111 || e.keyCode === 191 ||
+            e.key === '-' || e.keyCode === 109 || e.keyCode === 189) {
+          const delimited = format.insertDelim(e.target.value, e.target.selectionStart);
+          const valueMDY = mdy.join(mdy.parseInput(delimited));
+          const valueYMD = ymd.join(ymd.parseInput(delimited));
+          if (delimited !== e.target.value) {
+            this.setState({ value: delimited, valueMDY, valueYMD });
+          }
+        }
+        else if (e.key === 'Backspace' || e.keyCode === 8) {
+          if (/[^\d]/.test(e.target.value.charAt(e.target.selectionStart-1))) {
+            e.target.selectionStart--;
+            e.target.selectionEnd--;
+          }
+        }
+        //e.key === 'Tab' || e.keyCode === 9
+        //e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'ArrowRight' || e.key === 'ArrowDown' || (e.keyCode >= 37 && e.keyCode <= 40)
+        //e.key === 'Escape' || e.key === 'Esc' || e.keyCode === 27
       }
     }
-    //e.key === 'Tab' || e.keyCode === 9
-    //e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'ArrowRight' || e.key === 'ArrowDown' || (e.keyCode >= 37 && e.keyCode <= 40)
-    //e.key === 'Escape' || e.key === 'Esc' || e.keyCode === 27
   }
 
   handleFocus = e => {
@@ -188,11 +56,6 @@ class DateInput extends React.Component {
   }
 
   handleBlur = e => {
-    const dateValue = this.getValue(e.target);
-    const formats = dateFormats.filter(format => format.testEntire(dateValue));
-    if (formats.length === 1) {
-      this.formatValue(e.target, formats[0]);
-    }
   }
 
   setCaretPosition(elem, position) {
@@ -207,107 +70,13 @@ class DateInput extends React.Component {
   }
 
   render() {
-    const { value, parsed, date, invalid, pristine, ambiguous, error } = this.state;
+    const { value, valueMDY, valueYMD } = this.state;
     return <React.Fragment>
-      <Input
-        value={value}
-        error={invalid && !pristine}
-        placeholder="Enter a date"
-        onFocus={this.handleFocus}
-        onBlur={this.handleBlur}
-        onChange={this.handleChange}
-        onKeyDown={this.handleKeyDown}
-      />
-      <input type="date" />
-      <p><strong>Parsed:</strong> {parsed}</p>
-      <p><strong>Date:</strong> {date + ''}</p>
-      {error && <p style={{color: 'red'}}>{error}</p>}
-      {ambiguous && <p style={{color: 'red'}}>Ambiguous</p>}
+      <Input value={value} placeholder="Unformatted" onFocus={this.handleFocus} onBlur={this.handleBlur} onChange={this.handleChange} /> &nbsp;
+      <Input value={valueMDY} placeholder="MM/DD/YYYY" onFocus={this.handleFocus} onBlur={this.handleBlur} onChange={this.handleChange} onKeyDown={this.handleKeyDown(mdy)} /> &nbsp;
+      <Input value={valueYMD} placeholder="YYYY-MM-DD" onFocus={this.handleFocus} onBlur={this.handleBlur} onChange={this.handleChange} onKeyDown={this.handleKeyDown(ymd)} />
     </React.Fragment>
   }
 }
-
-console.log(dateFormats);
-
-function logFormats(dateValue) {
-  console.log(dateValue);
-  console.log(dateFormats.map(format => {
-    const test = format.test(dateValue);
-    const name = format.name.padEnd(8);
-    return test ? [
-      name,
-      format.getFormatted(dateValue).padEnd(11),
-      format.length === dateValue.length ? 'complete' : 'partial'
-    ].join`\t` : name;
-  }).join`\n`);
-}
-
-function logConflicts(year) {
-  const year4 = year.toString();
-  const year2 = year4.slice(-2);
-  const days = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  const dates = [];
-  const pad2 = a => a.toString().padStart(2, '0');
-  for (let month = 1; month <= 12; month++) {
-    for (let day = 1; day <= days[month-1]; day++) {
-      let formatted = '';
-      let yyyymmdd = '';
-      let mmddyyyy = '';
-      let mddyyyy = '';
-      let mmdyyyy = '';
-      let mdyyyy = '';
-      let mmddyy = '';
-      let mddyy = '';
-      let mmdyy = '';
-      let mdyy = '';
-      if (month < 10) {
-        if (day < 10) {
-          mdyy = '' + month + day + year2;
-          mdyyyy = '' + month + day + year4;
-        }
-        mddyy = '' + month + pad2(day) + year2;
-        mddyyyy = '' + month + pad2(day) + year4;
-      }
-      if (day < 10) {
-        mmdyy = pad2(month) + day + year2;
-        mmdyyyy = pad2(month) + day + year4;
-      }
-      mmddyy = pad2(month) + pad2(day) + year2;
-      mmddyyyy = pad2(month) + pad2(day) + year4;
-      yyyymmdd = year4 + pad2(month) + pad2(day);
-      formatted = pad2(month) + '/' + pad2(day) + '/' + year4;
-      dates.push({ formatted, inputs: {
-        'yyyy-mm-dd': yyyymmdd,
-        'mm/dd/yyyy': mmddyyyy,
-        'm/dd/yyyy': mddyyyy,
-        'mm/d/yyyy': mmdyyyy,
-        'm/d/yyyy': mdyyyy,
-        'mm/dd/yy': mmddyy,
-        'm/dd/yy': mddyy,
-        'mm/d/yy': mmdyy,
-        'm/d/yy': mdyy
-      }});
-    }
-  }
-  console.log(dates);
-  const conflicts = {};
-  for (const date of dates) {
-    for (const key in date.inputs) {
-      for (const format of dateFormats) {
-        if (format.name !== key && format.testEntire(date.inputs[key])) {
-          if (!date.conflicts) { date.conflicts = {}; }
-          if (!date.conflicts[key]) { date.conflicts[key] = []; }
-          date.conflicts[key].push(format.name);
-          if (!conflicts[key]) { conflicts[key] = {}; }
-          if (!conflicts[key][format.name]) { conflicts[key][format.name] = 0; }
-          conflicts[key][format.name]++;
-        }
-      }
-    }
-  }
-  console.log(dates);
-  console.log(conflicts);
-}
-logConflicts(2018);
 
 export default DateInput;

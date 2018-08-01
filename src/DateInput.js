@@ -61,6 +61,14 @@ class DateInput extends React.Component {
   }
 
   handleBlur = e => {
+    const parsedMDY = mdy.parseInput(e.target.value);
+    const parsedYMD = ymd.parseInput(e.target.value);
+    if (parsedMDY.complete && !parsedYMD.complete) {
+      this.setState({ value: mdy.join(parsedMDY) });
+    }
+    else if (parsedYMD.complete && !parsedMDY.complete) {
+      this.setState({ value: ymd.join(parsedYMD) });
+    }
   }
 
   setCaretPosition(elem, position) {

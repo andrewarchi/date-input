@@ -2,15 +2,15 @@ const sanitizePattern = /[^\d]/g;
 export const delimPattern = /[/-]/g;
 
 class DateFormat {
-  constructor(blocks, delim) {
+  constructor(blocks, delim, flexibleYear) {
     this.blocks = blocks;
-    this.blockSizes = blocks.map(b => b.length);
     this.delim = delim;
+    this.flexibleYear = flexibleYear;
   }
 
   parseInput(value) {
     value = sanitizeDelims(value);
-    let year, month, day;
+    let year = '', month = '', day = '';
     let zeroInserted = false;
     const blocks = this.blocks.map((block, i) => {
       let inserted = false;
@@ -21,11 +21,9 @@ class DateFormat {
         default: return '';
       }
     });
-    const flexibleYear = this.blocks[this.blocks.length - 1] === 'yyyy';
-    const validYear = flexibleYear
-      ? (year && year.length > 2 ? /^(20|19)/.test(year) : true)
-      : (year && (year.length > 1 ? /^(20|19)/.test(year) : /^[21]/.test(year)));
-    return { blocks, zeroInserted, validYear };
+    const validYear = (this.flexibleYear && year.length < 3) || /^20|^19|^[21]?$/.test(year);
+    const complete = blocks.join``.length === 8 && value === '';
+    return { blocks, zeroInserted, validYear, complete };
   }
 
   join({ blocks }) {
@@ -83,8 +81,8 @@ class DateFormat {
   }
 }
 
-export const mdy = new DateFormat(['mm', 'dd', 'yyyy'], '/');
-export const ymd = new DateFormat(['yyyy', 'mm', 'dd'], '-');
+export const mdy = new DateFormat(['mm', 'dd', 'yyyy'], '/', true);
+export const ymd = new DateFormat(['yyyy', 'mm', 'dd'], '-', false);
 
 function parseMonth(input) {
   if (input.charAt(0) > 1 || input.slice(0, 2) > 12) {

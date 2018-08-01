@@ -1,9 +1,6 @@
 import React from 'react';
 import Input from '@material-ui/core/Input';
-import { MDY, YMD } from './dateFormat';
-
-const mdy = new MDY();
-const ymd = new YMD();
+import { mdy, ymd } from './dateFormat';
 
 class DateInput extends React.Component {
   state = {
@@ -11,7 +8,6 @@ class DateInput extends React.Component {
     valueMDY: '',
     valueYMD: ''
   };
-
 
   handleChange = e => {
     console.log(e.target.value);
@@ -21,6 +17,21 @@ class DateInput extends React.Component {
     const valueYMD = ymd.join(ymd.parseInput(e.target.value));
 
     this.setState({ value, valueMDY, valueYMD });
+  }
+
+  handlePaste = e => {
+    const clipboard = e.clipboardData.getData('Text');
+    console.log(clipboard);
+
+    if (this.state.value === '' && this.state.valueMDY === '' && this.state.valueYMD === '') {
+      const value = clipboard.replace(/[^\d]/g, '');
+      const valueMDY = mdy.join(mdy.parseInput(mdy.parsePaste(clipboard)));
+      const valueYMD = ymd.join(ymd.parseInput(ymd.parsePaste(clipboard)));
+
+      this.setState({ value, valueMDY, valueYMD });
+    }
+
+    e.preventDefault();
   }
 
   handleKeyDown(format) {
@@ -72,9 +83,9 @@ class DateInput extends React.Component {
   render() {
     const { value, valueMDY, valueYMD } = this.state;
     return <React.Fragment>
-      <Input value={value} placeholder="Unformatted" onFocus={this.handleFocus} onBlur={this.handleBlur} onChange={this.handleChange} /> &nbsp;
-      <Input value={valueMDY} placeholder="MM/DD/YYYY" onFocus={this.handleFocus} onBlur={this.handleBlur} onChange={this.handleChange} onKeyDown={this.handleKeyDown(mdy)} /> &nbsp;
-      <Input value={valueYMD} placeholder="YYYY-MM-DD" onFocus={this.handleFocus} onBlur={this.handleBlur} onChange={this.handleChange} onKeyDown={this.handleKeyDown(ymd)} />
+      <Input value={value} placeholder="Unformatted" onChange={this.handleChange} /> &nbsp;
+      <Input value={valueMDY} placeholder="MM/DD/YYYY" onChange={this.handleChange} onPaste={this.handlePaste} onKeyDown={this.handleKeyDown(mdy)} onFocus={this.handleFocus} onBlur={this.handleBlur} /> &nbsp;
+      <Input value={valueYMD} placeholder="YYYY-MM-DD" onChange={this.handleChange} onPaste={this.handlePaste} onKeyDown={this.handleKeyDown(ymd)} onFocus={this.handleFocus} onBlur={this.handleBlur} />
     </React.Fragment>
   }
 }

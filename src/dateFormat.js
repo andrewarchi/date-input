@@ -8,6 +8,19 @@ class DateFormat {
     this.delim = delim;
   }
 
+  parseInput(value) {
+    value = sanitizeDelims(value);
+    let year, month, day;
+    return this.blocks.map((block, i) => {
+      switch (block) {
+        case 'yyyy': [year, value] = parseYear(value, i === this.blocks.length - 1); return year;
+        case 'mm': [month, value] = parseMonth(value); return month;
+        case 'dd': [day, value] = parseDay(value, +month, +year); return day;
+        default: return '';
+      }
+    });
+  }
+
   join(blocks) {
     let formatted = blocks[0];
     for (let i = 1; i < blocks.length; i++) {
@@ -47,7 +60,6 @@ class DateFormat {
     for (let i = 0; i < value.length; i++) {
       if (delimPattern.test(value.charAt(i))) {
         const delimited = this.insertDelim(parsed, i - sanitizedCount);
-        console.log(parsed, i - sanitizedCount, 'i', i, 'count', sanitizedCount)
         if (delimited !== parsed) {
           sanitizedCount += delimited.length - parsed.length - 1;
           parsed = delimited;
@@ -64,36 +76,8 @@ class DateFormat {
   }
 }
 
-export class MDY extends DateFormat {
-  constructor() {
-    super(['mm', 'dd', 'yyyy'], '/');
-  }
-
-  parseInput(value) {
-    const [ month, rest1 ] = parseMonth(sanitizeDelims(value));
-    const [ day, rest2 ] = parseDay(rest1, +month);
-    const [ year ] = parseYear(rest2, true);
-    return [ month, day, year ];
-  }
-
-  isValid(blocks) {
-    const [ month, day, year ] = blocks;
-    return super.isValid([ year, month, day ]);
-  }
-}
-
-export class YMD extends DateFormat {
-  constructor() {
-    super(['yyyy', 'mm', 'dd'], '-');
-  }
-
-  parseInput(value) {
-    const [ year, rest1 ] = parseYear(sanitizeDelims(value), false);
-    const [ month, rest2 ] = parseMonth(rest1);
-    const [ day ] = parseDay(rest2, +month, +year);
-    return [ year, month, day ];
-  }
-}
+export const mdy = new DateFormat(['mm', 'dd', 'yyyy'], '/');
+export const ymd = new DateFormat(['yyyy', 'mm', 'dd'], '-');
 
 function parseMonth(input) {
   if (input.charAt(0) > 1 || input.slice(0, 2) > 12) {
@@ -139,17 +123,13 @@ function getSanitizedPosition(value, position) {
   return position - (value.slice(0, position).match(sanitizePattern) || []).length;
 }
 
-/*const mdy = new MDY();
-const ymd = new YMD();
-console.log([...Array(999999)].map((a, i) => {
+/*console.log([...Array(999999)].map((a, i) => {
   const mdyBlocks = mdy.parseInput(i+'');
   const ymdBlocks = ymd.parseInput(i+'');
   return [mdy.join(mdyBlocks), mdy.isValid(mdyBlocks), ymd.join(ymdBlocks), ymd.isValid(ymdBlocks)];
 }));*/
 
-/*const mdy = new MDY();
-const ymd = new YMD();
-console.log([
+/*console.log([
   ['1/23/45', 1],
   ['0/12/34', 1],
   ['12/34/56', 1],
@@ -162,8 +142,6 @@ console.log([
   return [...a, insertedMDY, mdy.join(mdy.parseInput(insertedMDY)), insertedYMD, ymd.join(ymd.parseInput(insertedYMD))];
 }));*/
 
-const mdy = new MDY();
-const ymd = new YMD();
 console.log([
   ['1/2/34', '1934-1-2'],
   ['01/02/1934', '1934-01-02'],

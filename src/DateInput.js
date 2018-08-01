@@ -8,19 +8,19 @@ class DateInput extends React.Component {
   };
 
   setValue(value, valueMDY, valueYMD) {
-    const parsedMDY = mdy.parseInput(valueMDY);
-    const parsedYMD = ymd.parseInput(valueYMD);
+    const parsedMDY = mdy.parse(valueMDY);
+    const parsedYMD = ymd.parse(valueYMD);
     let parsedValue = '';
     if (parsedMDY.validYear) {
       if (parsedYMD.validYear) {
         parsedValue = sanitizeDelims(value);
       }
       else {
-        parsedValue = mdy.join(parsedMDY);
+        parsedValue = parsedMDY.format();
       }
     }
     else {
-      parsedValue = ymd.join(parsedYMD);
+      parsedValue = parsedYMD.format();
     }
 
     this.setState({ value: parsedValue });
@@ -61,13 +61,13 @@ class DateInput extends React.Component {
   }
 
   handleBlur = e => {
-    const parsedMDY = mdy.parseInput(e.target.value);
-    const parsedYMD = ymd.parseInput(e.target.value);
+    const parsedMDY = mdy.parse(e.target.value);
+    const parsedYMD = ymd.parse(e.target.value);
     if (parsedMDY.complete && !parsedYMD.complete) {
-      this.setState({ value: mdy.join(parsedMDY) });
+      this.setState({ value: parsedMDY.format() });
     }
     else if (parsedYMD.complete && !parsedMDY.complete) {
-      this.setState({ value: ymd.join(parsedYMD) });
+      this.setState({ value: parsedYMD.format() });
     }
   }
 

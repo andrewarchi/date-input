@@ -1,54 +1,35 @@
 const sanitizePattern = /[^\d]/g;
 export const delimPattern = /[/-]/g;
 
-class DateFormat {
-  constructor(blocks, delim, flexibleYear) {
-    this.blocks = blocks;
+class DateParser {
+  constructor(blockFormats, delim, flexibleYear) {
+    this.blockFormats = blockFormats;
     this.delim = delim;
     this.flexibleYear = flexibleYear;
   }
 
-  parseInput(value) {
+  parse(value) {
     value = sanitizeDelims(value);
     let year = '', month = '', day = '';
-    let zeroInserted = false;
-    const blocks = this.blocks.map((block, i) => {
-      let inserted = false;
+    const blocks = this.blockFormats.map((block, i) => {
       switch (block) {
-        case 'yyyy': [year, value, inserted] = parseYear(value, i === this.blocks.length - 1); zeroInserted = zeroInserted || inserted; return year;
-        case 'mm': [month, value, inserted] = parseMonth(value); zeroInserted = zeroInserted || inserted; return month;
-        case 'dd': [day, value, inserted] = parseDay(value, +month, +year); zeroInserted = zeroInserted || inserted; return day;
+        case 'yyyy': [year, value] = parseYear(value, i === this.blockFormats.length - 1); return year;
+        case 'mm': [month, value] = parseMonth(value); return month;
+        case 'dd': [day, value] = parseDay(value, +month, +year); return day;
         default: return '';
       }
     });
     const validYear = (this.flexibleYear && year.length < 3) || /^20|^19|^[21]?$/.test(year);
     const complete = blocks.join``.length === 8 && value === '';
-    return { blocks, zeroInserted, validYear, complete };
-  }
-
-  join({ blocks }) {
-    let formatted = blocks[0];
-    for (let i = 1; i < blocks.length; i++) {
-      if (blocks[i] !== '' || blocks[i - 1].length === this.blocks[i - 1].length) {
-        formatted += this.delim + blocks[i];
-      }
-    }
-    return formatted;
-  }
-
-  isValid(year, month, day) {
-    return month.length === 2 && day.length === 2 && year.length === 4 &&
-      month > 0 && month <= 12 &&
-      day > 0 && day <= getDaysInMonth(+month, +year) &&
-      year >= 1900 && year <= 2999;
+    return new ParsedDate(this.blockFormats, this.delim, blocks, year, month, day, validYear, complete);
   }
 
   insertDelim(value, position) {
     const sanitized = sanitizeDelims(value);
     position = getSanitizedPosition(value, position);
     let blockPos = 0;
-    for (let i = 0; i < this.blocks.length; i++) {
-      const block = this.blocks[i];
+    for (let i = 0; i < this.blockFormats.length; i++) {
+      const block = this.blockFormats[i];
       if (position > blockPos && position < blockPos + block.length &&
           block !== 'yyyy' && sanitized.slice(blockPos, position) > 0) {
         const paddedBlock = sanitized.slice(blockPos, position).padStart(block.length, '0');
@@ -81,23 +62,53 @@ class DateFormat {
   }
 }
 
-export const mdy = new DateFormat(['mm', 'dd', 'yyyy'], '/', true);
-export const ymd = new DateFormat(['yyyy', 'mm', 'dd'], '-', false);
+class ParsedDate {
+  constructor(blockFormats, delim, blocks, year, month, day, validYear, complete) {
+    this.blockFormats = blockFormats;
+    this.delim = delim;
+    this.blocks = blocks;
+    this.year = year;
+    this.month = month;
+    this.day = day;
+    this.validYear = validYear;
+    this.complete = complete;
+  }
+
+  format() {
+    let formatted = this.blocks[0];
+    for (let i = 1; i < this.blocks.length; i++) {
+      if (this.blocks[i] !== '' || this.blocks[i - 1].length === this.blockFormats[i - 1].length) {
+        formatted += this.delim + this.blocks[i];
+      }
+    }
+    return formatted;
+  }
+
+  isValid() {
+    return this.month.length === 2 && this.day.length === 2 && this.year.length === 4 &&
+      this.month > 0 && this.month <= 12 &&
+      this.day > 0 && this.day <= getDaysInMonth(+this.month, +this.year) &&
+      this.year >= 1900 && this.year <= 2999;
+  }
+}
+
+export const mdy = new DateParser(['mm', 'dd', 'yyyy'], '/', true);
+export const ymd = new DateParser(['yyyy', 'mm', 'dd'], '-', false);
 
 function parseMonth(input) {
   if (input.charAt(0) > 1 || input.slice(0, 2) > 12) {
-    return ['0' + input.charAt(0), input.slice(1), true];
+    return ['0' + input.charAt(0), input.slice(1)];
   }
-  return [input.slice(0, 2), input.slice(2), false];
+  return [input.slice(0, 2), input.slice(2)];
 }
 
 function parseDay(input, month, year) {
   const maxDay = getDaysInMonth(month, year);
   const maxDigit = month === 2 ? 2 : 3;
   if (input.charAt(0) > maxDigit || input.slice(0, 2) > maxDay) {
-    return ['0' + input.charAt(0), input.slice(1), true];
+    return ['0' + input.charAt(0), input.slice(1)];
   }
-  return [input.slice(0, 2), input.slice(2), false];
+  return [input.slice(0, 2), input.slice(2)];
 }
 
 function parseYear(input, flexible) {
@@ -105,10 +116,10 @@ function parseYear(input, flexible) {
     const year = input.slice(0, 2);
     if (input.length === 2 && year !== '20' && year !== '19') {
       const maxYear = (new Date().getFullYear() % 100) + 10;
-      return [(year <= maxYear ? '20' : '19') + year, input.slice(2), true];
+      return [(year <= maxYear ? '20' : '19') + year, input.slice(2)];
     }
   }
-  return [input.slice(0, 4), input.slice(4), false];
+  return [input.slice(0, 4), input.slice(4)];
 }
 
 function getDaysInMonth(month, year) {
@@ -159,5 +170,5 @@ console.log([
 ].map(a => {
   const insertedMDY = mdy.parsePaste(a[0]);
   const insertedYMD = ymd.parsePaste(a[1]);
-  return [...a, insertedMDY, mdy.join(mdy.parseInput(insertedMDY)), insertedYMD, ymd.join(ymd.parseInput(insertedYMD))];
+  return [...a, insertedMDY, mdy.parse(insertedMDY).format(), insertedYMD, ymd.parse(insertedYMD).format()];
 }));

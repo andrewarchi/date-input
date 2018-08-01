@@ -1,5 +1,5 @@
 const sanitizePattern = /[^\d]/g;
-const delimPattern = /[/-]/g;
+export const delimPattern = /[/-]/g;
 
 class DateFormat {
   constructor(blocks, delim) {
@@ -122,7 +122,7 @@ function isLeapYear(year) {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 }
 
-function sanitizeDelims(value) {
+export function sanitizeDelims(value) {
   return value.replace(sanitizePattern, '');
 }
 

@@ -59,9 +59,11 @@ class DateInput extends React.Component {
       const code = e.keyCode;
       if (key === '/' || code === 111 || code === 191) {
         this.insertDelim(value, selectionStart, 'mm/dd/yyyy');
+        e.preventDefault();
       }
       else if (key === '-' || code === 109 || code === 189) {
         this.insertDelim(value, selectionStart, 'yyyy-mm-dd');
+        e.preventDefault();
       }
       else if (key === 'Backspace' || code === 8) {
         if (delimPattern.test(value.charAt(selectionStart - 1))) {
@@ -71,7 +73,8 @@ class DateInput extends React.Component {
       else if (key === 'Escape' || key === 'Esc' || code === 27) {
         this.setState({ value: this.state.savedValue });
       }
-      //e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'ArrowRight' || e.key === 'ArrowDown' || (e.keyCode >= 37 && e.keyCode <= 40)
+      //key === 'ArrowUp' || code === 38
+      //key === 'ArrowDown' || code === 40
     }
   }
 

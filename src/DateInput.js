@@ -1,39 +1,31 @@
 import React from 'react';
 import Input from '@material-ui/core/Input';
-import { mdy, ymd, delimPattern, sanitizeDelims } from './dateFormat';
+import { DateParser, delimPattern, sanitizeDelims } from './dateFormat';
 
 class DateInput extends React.Component {
   state = {
     value: ''
   };
 
-  setValue(value, valueMDY, valueYMD) {
-    const parsedMDY = mdy.parse(valueMDY);
-    const parsedYMD = ymd.parse(valueYMD);
-    let parsedValue = '';
-    if (parsedMDY.validYear) {
-      if (parsedYMD.validYear) {
-        parsedValue = sanitizeDelims(value);
-      }
-      else {
-        parsedValue = parsedMDY.format();
-      }
-    }
-    else {
-      parsedValue = parsedYMD.format();
-    }
+  formats = [
+    new DateParser(['mm', 'dd', 'yyyy'], '/', true),
+    new DateParser(['yyyy', 'mm', 'dd'], '-', false)
+  ];
 
+  setValue(value, transform) {
+    const parsed = this.formats.map(format => transform(format, value)).filter(format => format.validYear);
+    const parsedValue = parsed.length === 1 ? parsed[0].format() : sanitizeDelims(value);
     this.setState({ value: parsedValue });
   }
 
   handleChange = e => {
-    this.setValue(e.target.value, e.target.value, e.target.value);
+    this.setValue(e.target.value, (format, value) => format.parse(value));
   }
 
   handlePaste = e => {
     if (this.state.value === '' || (e.target.selectionStart === 0 && e.target.selectionEnd === e.target.value.length)) {
       const clipboard = e.clipboardData.getData('Text');
-      this.setValue(clipboard, mdy.parsePaste(clipboard), ymd.parsePaste(clipboard));
+      this.setValue(clipboard, (format, value) => format.parse(format.parsePaste(value)));
     }
     e.preventDefault();
   }
@@ -44,7 +36,7 @@ class DateInput extends React.Component {
       const key = e.key;
       const code = e.keyCode;
       if (key === '/' || code === 111 || code === 191 || key === '-' || code === 109 || code === 189) {
-        this.setValue(value, mdy.insertDelim(value, selectionStart), ymd.insertDelim(value, selectionStart));
+        this.setValue(value, (format, value) => format.parse(format.insertDelim(value, selectionStart)));
       }
       else if (key === 'Backspace' || code === 8) {
         if (delimPattern.test(value.charAt(selectionStart - 1))) {
@@ -61,13 +53,9 @@ class DateInput extends React.Component {
   }
 
   handleBlur = e => {
-    const parsedMDY = mdy.parse(e.target.value);
-    const parsedYMD = ymd.parse(e.target.value);
-    if (parsedMDY.complete && !parsedYMD.complete) {
-      this.setState({ value: parsedMDY.format() });
-    }
-    else if (parsedYMD.complete && !parsedMDY.complete) {
-      this.setState({ value: parsedYMD.format() });
+    const parsed = this.formats.map(format => format.parse(e.target.value)).filter(format => format.complete);
+    if (parsed.length === 1) {
+      this.setState({ value: parsed[0].format() });
     }
   }
 

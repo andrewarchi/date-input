@@ -1,7 +1,7 @@
 const sanitizePattern = /[^\d]/g;
 export const delimPattern = /[/-]/g;
 
-class DateParser {
+export class DateParser {
   constructor(blockFormats, delim, flexibleYear) {
     this.blockFormats = blockFormats;
     this.delim = delim;
@@ -92,9 +92,6 @@ class ParsedDate {
   }
 }
 
-export const mdy = new DateParser(['mm', 'dd', 'yyyy'], '/', true);
-export const ymd = new DateParser(['yyyy', 'mm', 'dd'], '-', false);
-
 function parseMonth(input) {
   if (input.charAt(0) > 1 || input.slice(0, 2) > 12) {
     return ['0' + input.charAt(0), input.slice(1)];
@@ -158,6 +155,8 @@ function getSanitizedPosition(value, position) {
   return [...a, insertedMDY, mdy.join(mdy.parseInput(insertedMDY)), insertedYMD, ymd.join(ymd.parseInput(insertedYMD))];
 }));*/
 
+const mdy = new DateParser(['mm', 'dd', 'yyyy'], '/', true);
+const ymd = new DateParser(['yyyy', 'mm', 'dd'], '-', false);
 console.log([
   ['1/2/34', '1934-1-2'],
   ['01/02/1934', '1934-01-02'],

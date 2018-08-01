@@ -8,12 +8,21 @@ export class DateParser {
     this.flexibleYear = flexibleYear;
   }
 
-  parse(value) {
-    value = sanitizeDelims(value);
+  parse(input, keepDelims = false) {
+    let value = sanitizeDelims(input);
+    if (keepDelims) {
+      const delims = getDelimPositions(input);
+      let offset = 0;
+      for (const position of delims) {
+        const delimited = this.insertDelim(value, position + offset);
+        offset += delimited.length - value.length;
+        value = delimited;
+      }
+    }
     let year = '', month = '', day = '';
     const blocks = this.blockFormats.map((block, i) => {
       switch (block) {
-        case 'yyyy': [year, value] = parseYear(value, i === this.blockFormats.length - 1); return year;
+        case 'yyyy': [year, value] = parseYear(value, this.flexibleYear); return year;
         case 'mm': [month, value] = parseMonth(value); return month;
         case 'dd': [day, value] = parseDay(value, +month, +year); return day;
         default: return '';
@@ -25,40 +34,17 @@ export class DateParser {
   }
 
   insertDelim(value, position) {
-    const sanitized = sanitizeDelims(value);
-    position = getSanitizedPosition(value, position);
     let blockPos = 0;
     for (let i = 0; i < this.blockFormats.length; i++) {
       const block = this.blockFormats[i];
       if (position > blockPos && position < blockPos + block.length &&
-          block !== 'yyyy' && sanitized.slice(blockPos, position) > 0) {
-        const paddedBlock = sanitized.slice(blockPos, position).padStart(block.length, '0');
-        return sanitized.slice(0, blockPos) + paddedBlock + sanitized.slice(position);
+          block !== 'yyyy' && value.slice(blockPos, position) > 0) {
+        const paddedBlock = value.slice(blockPos, position).padStart(block.length, '0');
+        return value.slice(0, blockPos) + paddedBlock + value.slice(position);
       }
       blockPos += block.length;
     }
-    return sanitized;
-  }
-
-  parsePaste(value) {
-    let parsed = sanitizeDelims(value);
-    let sanitizedCount = 0;
-    for (let i = 0; i < value.length; i++) {
-      if (delimPattern.test(value.charAt(i))) {
-        const delimited = this.insertDelim(parsed, i - sanitizedCount);
-        if (delimited !== parsed) {
-          sanitizedCount += delimited.length - parsed.length - 1;
-          parsed = delimited;
-        }
-        else {
-          sanitizedCount++;
-        }
-      }
-      else if (sanitizePattern.test(value.charAt(i))) {
-        sanitizedCount++;
-      }
-    }
-    return parsed;
+    return value;
   }
 }
 
@@ -132,8 +118,22 @@ export function sanitizeDelims(value) {
   return value.replace(sanitizePattern, '');
 }
 
-function getSanitizedPosition(value, position) {
+export function getSanitizedPosition(value, position) {
   return position - (value.slice(0, position).match(sanitizePattern) || []).length;
+}
+
+function getDelimPositions(value) {
+  const delims = [];
+  let offset = 0;
+  for (let i = 0; i < value.length; i++) {
+    if (delimPattern.test(value.charAt(i))) {
+      delims.push(i - offset++);
+    }
+    else if (sanitizePattern.test(value.charAt(i))) {
+      offset++;
+    }
+  }
+  return delims;
 }
 
 /*console.log([...Array(999999)].map((a, i) => {
@@ -155,7 +155,7 @@ function getSanitizedPosition(value, position) {
   return [...a, insertedMDY, mdy.join(mdy.parseInput(insertedMDY)), insertedYMD, ymd.join(ymd.parseInput(insertedYMD))];
 }));*/
 
-const mdy = new DateParser(['mm', 'dd', 'yyyy'], '/', true);
+/*const mdy = new DateParser(['mm', 'dd', 'yyyy'], '/', true);
 const ymd = new DateParser(['yyyy', 'mm', 'dd'], '-', false);
 console.log([
   ['1/2/34', '1934-1-2'],
@@ -170,4 +170,4 @@ console.log([
   const insertedMDY = mdy.parsePaste(a[0]);
   const insertedYMD = ymd.parsePaste(a[1]);
   return [...a, insertedMDY, mdy.parse(insertedMDY).format(), insertedYMD, ymd.parse(insertedYMD).format()];
-}));
+}));*/

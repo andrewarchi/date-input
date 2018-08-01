@@ -1,6 +1,6 @@
 import React from 'react';
 import Input from '@material-ui/core/Input';
-import { DateParser, delimPattern, sanitizeDelims } from './dateFormat';
+import { DateParser, delimPattern, sanitizeDelims, getSanitizedPosition } from './dateFormat';
 
 class DateInput extends React.Component {
   state = {
@@ -25,7 +25,7 @@ class DateInput extends React.Component {
   handlePaste = e => {
     if (this.state.value === '' || (e.target.selectionStart === 0 && e.target.selectionEnd === e.target.value.length)) {
       const clipboard = e.clipboardData.getData('Text');
-      this.setValue(clipboard, (format, value) => format.parse(format.parsePaste(value)));
+      this.setValue(clipboard, (format, value) => format.parse(value, true));
     }
     e.preventDefault();
   }
@@ -36,7 +36,7 @@ class DateInput extends React.Component {
       const key = e.key;
       const code = e.keyCode;
       if (key === '/' || code === 111 || code === 191 || key === '-' || code === 109 || code === 189) {
-        this.setValue(value, (format, value) => format.parse(format.insertDelim(value, selectionStart)));
+        this.setValue(value, (format, value) => format.parse(format.insertDelim(sanitizeDelims(value), getSanitizedPosition(value, selectionStart))));
       }
       else if (key === 'Backspace' || code === 8) {
         if (delimPattern.test(value.charAt(selectionStart - 1))) {

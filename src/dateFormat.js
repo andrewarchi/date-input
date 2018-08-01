@@ -1,3 +1,6 @@
+const sanitizePattern = /[^\d]/g;
+const delimPattern = /[/-]/g;
+
 class DateFormat {
   constructor(blocks, delim) {
     this.blocks = blocks;
@@ -25,17 +28,39 @@ class DateFormat {
   insertDelim(value, position) {
     const sanitized = sanitizeDelims(value);
     position = getSanitizedPosition(value, position);
-    let blockStart = 0;
-    let blockEnd = 0;
+    let blockPos = 0;
     for (let i = 0; i < this.blocks.length; i++) {
       const block = this.blocks[i];
-      blockEnd += block.length;
-      if (block !== 'yyyy' && position > blockStart && position < blockEnd && sanitized.slice(blockStart, position) > 0) {
-        return sanitized.slice(0, blockStart) + '|' + sanitized.slice(blockStart, position).padStart(block.length, '0') + '|' + sanitized.slice(position);
+      if (position > blockPos && position < blockPos + block.length &&
+          block !== 'yyyy' && sanitized.slice(blockPos, position) > 0) {
+        const paddedBlock = sanitized.slice(blockPos, position).padStart(block.length, '0');
+        return sanitized.slice(0, blockPos) + paddedBlock + sanitized.slice(position);
       }
-      blockStart += block.length;
+      blockPos += block.length;
     }
     return sanitized;
+  }
+
+  parsePaste(value) {
+    let parsed = sanitizeDelims(value);
+    let sanitizedCount = 0;
+    for (let i = 0; i < value.length; i++) {
+      if (delimPattern.test(value.charAt(i))) {
+        const delimited = this.insertDelim(parsed, i - sanitizedCount);
+        console.log(parsed, i - sanitizedCount, 'i', i, 'count', sanitizedCount)
+        if (delimited !== parsed) {
+          sanitizedCount += delimited.length - parsed.length - 1;
+          parsed = delimited;
+        }
+        else {
+          sanitizedCount++;
+        }
+      }
+      else if (sanitizePattern.test(value.charAt(i))) {
+        sanitizedCount++;
+      }
+    }
+    return parsed;
   }
 }
 
@@ -50,8 +75,6 @@ export class MDY extends DateFormat {
     const [ year ] = parseYear(rest2, true);
     return [ month, day, year ];
   }
-
-  paste(value) {}
 
   isValid(blocks) {
     const [ month, day, year ] = blocks;
@@ -109,11 +132,11 @@ function isLeapYear(year) {
 }
 
 function sanitizeDelims(value) {
-  return value.replace(/[^\d]/g, '');
+  return value.replace(sanitizePattern, '');
 }
 
 function getSanitizedPosition(value, position) {
-  return position - (value.slice(0, position).match(/[^\d]/g) || []).length;
+  return position - (value.slice(0, position).match(sanitizePattern) || []).length;
 }
 
 /*const mdy = new MDY();
@@ -124,7 +147,7 @@ console.log([...Array(999999)].map((a, i) => {
   return [mdy.join(mdyBlocks), mdy.isValid(mdyBlocks), ymd.join(ymdBlocks), ymd.isValid(ymdBlocks)];
 }));*/
 
-const mdy = new MDY();
+/*const mdy = new MDY();
 const ymd = new YMD();
 console.log([
   ['1/23/45', 1],
@@ -136,5 +159,22 @@ console.log([
 ].map(a => {
   const insertedMDY = mdy.insertDelim(a[0], a[1]);
   const insertedYMD = ymd.insertDelim(a[0], a[1]);
+  return [...a, insertedMDY, mdy.join(mdy.parseInput(insertedMDY)), insertedYMD, ymd.join(ymd.parseInput(insertedYMD))];
+}));*/
+
+const mdy = new MDY();
+const ymd = new YMD();
+console.log([
+  ['1/2/34', '1934-1-2'],
+  ['01/02/1934', '1934-01-02'],
+  ['1/23/45', '1945-1-23'],
+  ['12/3/45', '1945-12-3'],
+  ['12/31/18', '2018-12-31'],
+  ['02/12/2018', '2018-02-12'],
+  ['232018', '201823'],
+  ['2/3/2018', '2018-02-03']
+].map(a => {
+  const insertedMDY = mdy.parsePaste(a[0]);
+  const insertedYMD = ymd.parsePaste(a[1]);
   return [...a, insertedMDY, mdy.join(mdy.parseInput(insertedMDY)), insertedYMD, ymd.join(ymd.parseInput(insertedYMD))];
 }));

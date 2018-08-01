@@ -1,10 +1,12 @@
 import React from 'react';
 import Input from '@material-ui/core/Input';
-import { DateParser, delimPattern, sanitizeDelims, getSanitizedPosition } from './dateFormat';
+import { DateParser, delimPattern, sanitizeDelims } from './dateFormat';
 
 class DateInput extends React.Component {
   state = {
-    value: ''
+    value: '',
+    savedValue: '',
+    userFormat: ''
   };
 
   formats = [
@@ -12,20 +14,40 @@ class DateInput extends React.Component {
     new DateParser(['yyyy', 'mm', 'dd'], '-', false)
   ];
 
-  setValue(value, transform) {
-    const parsed = this.formats.map(format => transform(format, value)).filter(format => format.validYear);
+  setValue(value, keepDelims = false) {
+    const parsed = this.formats.map(format => format.parse(value, keepDelims)).filter(format => format.validYear);
     const parsedValue = parsed.length === 1 ? parsed[0].format() : sanitizeDelims(value);
     this.setState({ value: parsedValue });
   }
 
+  insertDelim(value, position, formatName) {
+    const parsed = [];
+    this.formats.forEach(format => {
+      const delimited = format.insertDelimSanitized(value, position);
+      const parsedFormat = format.parse(delimited.value);
+      if (delimited.validPosition) {
+        parsed.push(parsedFormat);
+      }
+    });
+    if (parsed.length === 1) {
+      this.setState({ value: parsed[0].format(), userFormat: parsed[0].id });
+    }
+    else {
+      const namedFormat = parsed.find(format => format.id === formatName);
+      if (namedFormat) {
+        this.setState({ value: namedFormat.format(), userFormat: namedFormat.id });
+      }
+    }
+  }
+
   handleChange = e => {
-    this.setValue(e.target.value, (format, value) => format.parse(value));
+    this.setValue(e.target.value);
   }
 
   handlePaste = e => {
     if (this.state.value === '' || (e.target.selectionStart === 0 && e.target.selectionEnd === e.target.value.length)) {
       const clipboard = e.clipboardData.getData('Text');
-      this.setValue(clipboard, (format, value) => format.parse(value, true));
+      this.setValue(clipboard, true);
     }
     e.preventDefault();
   }
@@ -35,21 +57,27 @@ class DateInput extends React.Component {
     if (selectionStart === selectionEnd) {
       const key = e.key;
       const code = e.keyCode;
-      if (key === '/' || code === 111 || code === 191 || key === '-' || code === 109 || code === 189) {
-        this.setValue(value, (format, value) => format.parse(format.insertDelim(sanitizeDelims(value), getSanitizedPosition(value, selectionStart))));
+      if (key === '/' || code === 111 || code === 191) {
+        this.insertDelim(value, selectionStart, 'mm/dd/yyyy');
+      }
+      else if (key === '-' || code === 109 || code === 189) {
+        this.insertDelim(value, selectionStart, 'yyyy-mm-dd');
       }
       else if (key === 'Backspace' || code === 8) {
         if (delimPattern.test(value.charAt(selectionStart - 1))) {
           this.setCaretPosition(e.target, selectionStart - 1);
         }
       }
+      else if (key === 'Escape' || key === 'Esc' || code === 27) {
+        this.setState({ value: this.state.savedValue });
+      }
       //e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'ArrowRight' || e.key === 'ArrowDown' || (e.keyCode >= 37 && e.keyCode <= 40)
-      //e.key === 'Escape' || e.key === 'Esc' || e.keyCode === 27
     }
   }
 
   handleFocus = e => {
     e.target.select();
+    this.setState({ savedValue: this.state.value });
   }
 
   handleBlur = e => {

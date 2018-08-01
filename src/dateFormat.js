@@ -6,6 +6,7 @@ export class DateParser {
     this.blockFormats = blockFormats;
     this.delim = delim;
     this.flexibleYear = flexibleYear;
+    this.id = blockFormats.join(delim);
   }
 
   parse(input, keepDelims = false) {
@@ -14,7 +15,7 @@ export class DateParser {
       const delims = getDelimPositions(input);
       let offset = 0;
       for (const position of delims) {
-        const delimited = this.insertDelim(value, position + offset);
+        const delimited = this.insertDelim(value, position + offset).value;
         offset += delimited.length - value.length;
         value = delimited;
       }
@@ -40,11 +41,15 @@ export class DateParser {
       if (position > blockPos && position < blockPos + block.length &&
           block !== 'yyyy' && value.slice(blockPos, position) > 0) {
         const paddedBlock = value.slice(blockPos, position).padStart(block.length, '0');
-        return value.slice(0, blockPos) + paddedBlock + value.slice(position);
+        return { value: value.slice(0, blockPos) + paddedBlock + value.slice(position), validPosition: true };
       }
       blockPos += block.length;
     }
-    return value;
+    return { value, validPosition: false };
+  }
+
+  insertDelimSanitized(value, position) {
+    return this.insertDelim(sanitizeDelims(value), getSanitizedPosition(value, position));
   }
 }
 
@@ -106,8 +111,8 @@ function parseYear(input, flexible) {
 }
 
 function getDaysInMonth(month, year) {
-  const leapYear = !year || isLeapYear(year);
-  return [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+  const feb = !year || isLeapYear(year) ? 29 : 28;
+  return [31, feb, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
 }
 
 function isLeapYear(year) {
@@ -118,7 +123,7 @@ export function sanitizeDelims(value) {
   return value.replace(sanitizePattern, '');
 }
 
-export function getSanitizedPosition(value, position) {
+function getSanitizedPosition(value, position) {
   return position - (value.slice(0, position).match(sanitizePattern) || []).length;
 }
 

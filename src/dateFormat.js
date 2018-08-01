@@ -11,17 +11,24 @@ class DateFormat {
   parseInput(value) {
     value = sanitizeDelims(value);
     let year, month, day;
-    return this.blocks.map((block, i) => {
+    let zeroInserted = false;
+    const blocks = this.blocks.map((block, i) => {
+      let inserted = false;
       switch (block) {
-        case 'yyyy': [year, value] = parseYear(value, i === this.blocks.length - 1); return year;
-        case 'mm': [month, value] = parseMonth(value); return month;
-        case 'dd': [day, value] = parseDay(value, +month, +year); return day;
+        case 'yyyy': [year, value, inserted] = parseYear(value, i === this.blocks.length - 1); zeroInserted = zeroInserted || inserted; return year;
+        case 'mm': [month, value, inserted] = parseMonth(value); zeroInserted = zeroInserted || inserted; return month;
+        case 'dd': [day, value, inserted] = parseDay(value, +month, +year); zeroInserted = zeroInserted || inserted; return day;
         default: return '';
       }
     });
+    const flexibleYear = this.blocks[this.blocks.length - 1] === 'yyyy';
+    const validYear = flexibleYear
+      ? (year && year.length > 2 ? /^(20|19)/.test(year) : true)
+      : (year && (year.length > 1 ? /^(20|19)/.test(year) : /^[21]/.test(year)));
+    return { blocks, zeroInserted, validYear };
   }
 
-  join(blocks) {
+  join({ blocks }) {
     let formatted = blocks[0];
     for (let i = 1; i < blocks.length; i++) {
       if (blocks[i] !== '' || blocks[i - 1].length === this.blocks[i - 1].length) {
@@ -81,18 +88,18 @@ export const ymd = new DateFormat(['yyyy', 'mm', 'dd'], '-');
 
 function parseMonth(input) {
   if (input.charAt(0) > 1 || input.slice(0, 2) > 12) {
-    return ['0' + input.charAt(0), input.slice(1)];
+    return ['0' + input.charAt(0), input.slice(1), true];
   }
-  return [input.slice(0, 2), input.slice(2)];
+  return [input.slice(0, 2), input.slice(2), false];
 }
 
 function parseDay(input, month, year) {
   const maxDay = getDaysInMonth(month, year);
   const maxDigit = month === 2 ? 2 : 3;
   if (input.charAt(0) > maxDigit || input.slice(0, 2) > maxDay) {
-    return ['0' + input.charAt(0), input.slice(1)];
+    return ['0' + input.charAt(0), input.slice(1), true];
   }
-  return [input.slice(0, 2), input.slice(2)];
+  return [input.slice(0, 2), input.slice(2), false];
 }
 
 function parseYear(input, flexible) {
@@ -100,14 +107,14 @@ function parseYear(input, flexible) {
     const year = input.slice(0, 2);
     if (input.length === 2 && year !== '20' && year !== '19') {
       const maxYear = (new Date().getFullYear() % 100) + 10;
-      return [(year <= maxYear ? '20' : '19') + year, input.slice(2)];
+      return [(year <= maxYear ? '20' : '19') + year, input.slice(2), true];
     }
   }
-  return [input.slice(0, 4), input.slice(4)];
+  return [input.slice(0, 4), input.slice(4), false];
 }
 
 function getDaysInMonth(month, year) {
-  const leapYear = typeof year === 'undefined' || isLeapYear(year);
+  const leapYear = !year || isLeapYear(year);
   return [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
 }
 

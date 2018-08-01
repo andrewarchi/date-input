@@ -5,18 +5,34 @@ import { mdy, ymd } from './dateFormat';
 class DateInput extends React.Component {
   state = {
     value: '',
+    valuePlain: '',
     valueMDY: '',
     valueYMD: ''
   };
 
   handleChange = e => {
     console.log(e.target.value);
+    const valuePlain = e.target.value.replace(/[^\d]/g, '');
+    let value = '';
 
-    const value = e.target.value.replace(/[^\d]/g, '');
-    const valueMDY = mdy.join(mdy.parseInput(e.target.value));
-    const valueYMD = ymd.join(ymd.parseInput(e.target.value));
+    const parsedMDY = mdy.parseInput(e.target.value);
+    const parsedYMD = ymd.parseInput(e.target.value);
+    const valueMDY = mdy.join(parsedMDY);
+    const valueYMD = ymd.join(parsedYMD);
 
-    this.setState({ value, valueMDY, valueYMD });
+    if (parsedMDY.validYear) {
+      if (parsedYMD.validYear) {
+        value = valuePlain;
+      }
+      else {
+        value = valueMDY;
+      }
+    }
+    else {
+      value = valueYMD;
+    }
+
+    this.setState({ value, valuePlain, valueMDY, valueYMD });
   }
 
   handlePaste = e => {
@@ -24,11 +40,11 @@ class DateInput extends React.Component {
     console.log(clipboard);
 
     if (this.state.value === '' && this.state.valueMDY === '' && this.state.valueYMD === '') {
-      const value = clipboard.replace(/[^\d]/g, '');
+      const valuePlain = clipboard.replace(/[^\d]/g, '');
       const valueMDY = mdy.join(mdy.parseInput(mdy.parsePaste(clipboard)));
       const valueYMD = ymd.join(ymd.parseInput(ymd.parsePaste(clipboard)));
 
-      this.setState({ value, valueMDY, valueYMD });
+      this.setState({ valuePlain, valueMDY, valueYMD });
     }
 
     e.preventDefault();
@@ -81,9 +97,10 @@ class DateInput extends React.Component {
   }
 
   render() {
-    const { value, valueMDY, valueYMD } = this.state;
+    const { value, valuePlain, valueMDY, valueYMD } = this.state;
     return <React.Fragment>
-      <Input value={value} placeholder="Unformatted" onChange={this.handleChange} /> &nbsp;
+      <Input value={valuePlain} placeholder="Unformatted" onChange={this.handleChange} /> &nbsp;
+      <Input value={value} placeholder="M/D/Y or Y/M/D" onChange={this.handleChange} onPaste={this.handlePaste} onKeyDown={this.handleKeyDown(mdy)} onFocus={this.handleFocus} onBlur={this.handleBlur} /> &nbsp;
       <Input value={valueMDY} placeholder="MM/DD/YYYY" onChange={this.handleChange} onPaste={this.handlePaste} onKeyDown={this.handleKeyDown(mdy)} onFocus={this.handleFocus} onBlur={this.handleBlur} /> &nbsp;
       <Input value={valueYMD} placeholder="YYYY-MM-DD" onChange={this.handleChange} onPaste={this.handlePaste} onKeyDown={this.handleKeyDown(ymd)} onFocus={this.handleFocus} onBlur={this.handleBlur} />
     </React.Fragment>

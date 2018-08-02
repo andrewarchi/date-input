@@ -1,6 +1,6 @@
 import React from 'react';
 import Input from '@material-ui/core/Input';
-import { DateParser, delimPattern, sanitizeDelims } from './dateFormat';
+import { Monat, MonatFormat, delimPattern, sanitizeDelims } from './dateFormat';
 
 class DateInput extends React.Component {
   state = {
@@ -9,21 +9,21 @@ class DateInput extends React.Component {
     userFormat: ''
   };
 
-  formats = [
-    new DateParser(['mm', 'dd', 'yyyy'], '/', true),
-    new DateParser(['yyyy', 'mm', 'dd'], '-', false)
-  ];
+  monat = new Monat(
+    new MonatFormat(['mm', 'dd', 'yyyy'], '/', true),
+    new MonatFormat(['yyyy', 'mm', 'dd'], '-', false)
+  );
 
   setValue(value, keepDelims = false) {
-    const parsed = this.formats.map(format => format.parse(value, keepDelims)).filter(format => format.validYear);
+    const parsed = this.monat.formats.map(format => format.parse(value, keepDelims)).filter(format => format.validYear);
     const parsedValue = parsed.length === 1 ? parsed[0].format() : sanitizeDelims(value);
     this.setState({ value: parsedValue });
   }
 
   insertDelim(value, position, formatName) {
     const parsed = [];
-    this.formats.forEach(format => {
-      const delimited = format.insertDelimSanitized(value, position);
+    this.monat.formats.forEach(format => {
+      const delimited = format.insertDelim(value, position);
       const parsedFormat = format.parse(delimited.value);
       if (delimited.validPosition) {
         parsed.push(parsedFormat);
@@ -84,7 +84,7 @@ class DateInput extends React.Component {
   }
 
   handleBlur = e => {
-    const parsed = this.formats.map(format => format.parse(e.target.value)).filter(format => format.complete);
+    const parsed = this.monat.formats.map(format => format.parse(e.target.value)).filter(format => format.validYear);
     if (parsed.length === 1) {
       this.setState({ value: parsed[0].format() });
     }

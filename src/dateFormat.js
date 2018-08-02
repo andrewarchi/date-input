@@ -1,7 +1,13 @@
 const sanitizePattern = /[^\d]/g;
 export const delimPattern = /[/-]/g;
 
-export class DateParser {
+export class Monat {
+  constructor(...formats) {
+    this.formats = formats;
+  }
+}
+
+export class MonatFormat {
   constructor(blockFormats, delim, flexibleYear) {
     this.blockFormats = blockFormats;
     this.delim = delim;
@@ -9,63 +15,62 @@ export class DateParser {
     this.id = blockFormats.join(delim);
   }
 
-  parse(input, keepDelims = false) {
+  parse(input) {
     let value = sanitizeDelims(input);
-    if (keepDelims) {
-      const delims = getDelimPositions(input);
-      let offset = 0;
-      for (const position of delims) {
-        const delimited = this.insertDelim(value, position + offset).value;
-        offset += delimited.length - value.length;
-        value = delimited;
-      }
-    }
     let year = '', month = '', day = '';
     const blocks = this.blockFormats.map((block, i) => {
       switch (block) {
-        case 'yyyy': [year, value] = parseYear(value, this.flexibleYear); return year;
+        case 'yyyy': [year, value] = parseYear(value); return year;
         case 'mm': [month, value] = parseMonth(value); return month;
         case 'dd': [day, value] = parseDay(value, +month, +year); return day;
         default: return '';
       }
     });
-    const validYear = (this.flexibleYear && year.length < 3) || /^20|^19|^[21]?$/.test(year);
-    const complete = blocks.join``.length === 8 && value === '';
-    return new ParsedDate(this.blockFormats, this.delim, blocks, year, month, day, validYear, complete);
+    return new ParsedDate(this.blockFormats, this.delim, this.flexibleYear, input, blocks, year, month, day);
+  }
+
+  parseDelimited(input) {
+    const delims = getDelimPositions(input);
+    let value = input;
+    let offset = 0;
+    for (const position of delims) {
+      const delimited = this.insertDelim(value, position + offset).value;
+      offset += delimited.length - value.length;
+      value = delimited;
+    }
+    return this.parse(value);
   }
 
   insertDelim(value, position) {
-    let blockPos = 0;
-    for (let i = 0; i < this.blockFormats.length; i++) {
-      const block = this.blockFormats[i];
-      if (position > blockPos && position < blockPos + block.length &&
-          block !== 'yyyy' && value.slice(blockPos, position) > 0) {
-        const paddedBlock = value.slice(blockPos, position).padStart(block.length, '0');
-        return { value: value.slice(0, blockPos) + paddedBlock + value.slice(position), validPosition: true };
-      }
-      blockPos += block.length;
-    }
-    return { value, validPosition: false };
-  }
-
-  insertDelimSanitized(value, position) {
-    return this.insertDelim(sanitizeDelims(value), getSanitizedPosition(value, position));
+    return insertDelim(sanitizeDelims(value), getSanitizedPosition(value, position), this.blockFormats);
   }
 }
 
 class ParsedDate {
-  constructor(blockFormats, delim, blocks, year, month, day, validYear, complete) {
+  constructor(blockFormats, delim, flexibleYear, value, blocks, year, month, day) {
     this.blockFormats = blockFormats;
     this.delim = delim;
+    this.flexibleYear = flexibleYear;
     this.blocks = blocks;
     this.year = year;
     this.month = month;
     this.day = day;
-    this.validYear = validYear;
-    this.complete = complete;
+    this.validYear = (this.flexibleYear && year.length < 3) || /^20|^19|^[21]?$/.test(year);
+    this.complete = blocks.join``.length === this.blockFormats.join``.length && value === '';
   }
 
   format() {
+    return this.join(this.blocks.map((block, i) => {
+      switch (this.blockFormats[i]) {
+        case 'yyyy': return formatYear(block, this.flexibleYear);
+        case 'mm':
+        case 'dd': return block.padStart(2, '0');
+        default: return block;
+      }
+    }))
+  }
+
+  join(blocks) {
     let formatted = this.blocks[0];
     for (let i = 1; i < this.blocks.length; i++) {
       if (this.blocks[i] !== '' || this.blocks[i - 1].length === this.blockFormats[i - 1].length) {
@@ -83,9 +88,21 @@ class ParsedDate {
   }
 }
 
+function formatYear(year, flexible) {
+  if (flexible && year.length === 2 && year !== '20' && year !== '19') {
+    const maxYear = (new Date().getFullYear() % 100) + 10;
+    return (year <= maxYear ? '20' : '19') + year;
+  }
+  return year;
+}
+
+function parseYear(input) {
+  return [input.slice(0, 4), input.slice(4)];
+}
+
 function parseMonth(input) {
   if (input.charAt(0) > 1 || input.slice(0, 2) > 12) {
-    return ['0' + input.charAt(0), input.slice(1)];
+    return [input.charAt(0), input.slice(1)];
   }
   return [input.slice(0, 2), input.slice(2)];
 }
@@ -94,20 +111,9 @@ function parseDay(input, month, year) {
   const maxDay = getDaysInMonth(month, year);
   const maxDigit = month === 2 ? 2 : 3;
   if (input.charAt(0) > maxDigit || input.slice(0, 2) > maxDay) {
-    return ['0' + input.charAt(0), input.slice(1)];
+    return [input.charAt(0), input.slice(1)];
   }
   return [input.slice(0, 2), input.slice(2)];
-}
-
-function parseYear(input, flexible) {
-  if (flexible) {
-    const year = input.slice(0, 2);
-    if (input.length === 2 && year !== '20' && year !== '19') {
-      const maxYear = (new Date().getFullYear() % 100) + 10;
-      return [(year <= maxYear ? '20' : '19') + year, input.slice(2)];
-    }
-  }
-  return [input.slice(0, 4), input.slice(4)];
 }
 
 function getDaysInMonth(month, year) {
@@ -117,6 +123,20 @@ function getDaysInMonth(month, year) {
 
 function isLeapYear(year) {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+function insertDelim(value, position, blockFormats) {
+  let blockPos = 0;
+  for (let i = 0; i < blockFormats.length; i++) {
+    const block = blockFormats[i];
+    if (position > blockPos && position < blockPos + block.length &&
+        block !== 'yyyy' && value.slice(blockPos, position) > 0) {
+      const paddedBlock = value.slice(blockPos, position).padStart(block.length, '0');
+      return { value: value.slice(0, blockPos) + paddedBlock + value.slice(position), validPosition: true };
+    }
+    blockPos += block.length;
+  }
+  return { value, validPosition: false };
 }
 
 export function sanitizeDelims(value) {

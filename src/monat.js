@@ -1,9 +1,53 @@
 const sanitizePattern = /[^\d]/g;
-export const delimPattern = /[/-]/g;
+const delimPattern = /[/-]/g;
 
 export class Monat {
   constructor(...formats) {
     this.formats = formats;
+    this.delims = formats.map(f => f.delim).join``;
+    this.userFormat = '';
+  }
+
+  parse(value, keepDelims = false) {
+    const transform = keepDelims ? format => format.parseDelimited(value) : format => format.parse(value);
+    const parsed = this.formats.map(transform).filter(format => format.validYear());
+    const parsedValue = parsed.length === 1 ? parsed[0].getFormatted() : sanitizeDelims(value);
+    return parsedValue;
+  }
+
+  insertDelim(value, position, formatName) {
+    const parsed = [];
+    this.formats.forEach(format => {
+      const delimited = format.insertDelimSanitized(value, position);
+      const parsedFormat = format.parse(delimited.value);
+      if (delimited.validPosition) {
+        parsed.push(parsedFormat);
+      }
+    });
+    if (parsed.length === 1) {
+      this.userFormat = parsed[0].id;
+      return parsed[0].getFormatted();
+    }
+    else {
+      const namedFormat = parsed.find(format => format.id === formatName);
+      if (namedFormat) {
+        this.userFormat = namedFormat.id;
+        return namedFormat.getFormatted();
+      }
+    }
+    return value;
+  }
+
+  setCompleted(value) {
+    const parsed = this.formats.map(format => format.parse(value)).filter(format => format.validYear());
+    if (parsed.length === 1) {
+      return parsed[0].getFormatted();
+    }
+    return value;
+  }
+
+  isDelim(char) {
+    return this.delims.includes(char);
   }
 }
 
@@ -41,7 +85,7 @@ export class MonatFormat {
     return this.parse(value);
   }
 
-  insertDelim(value, position) {
+  insertDelimSanitized(value, position) {
     return insertDelim(sanitizeDelims(value), getSanitizedPosition(value, position), this.blockFormats);
   }
 

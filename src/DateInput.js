@@ -1,41 +1,21 @@
 import React from 'react';
 import Input from '@material-ui/core/Input';
-import { Monat, MDY, YMD, delimPattern, sanitizeDelims } from './monat';
+import { Monat, MDY, YMD } from './monat';
 
 class DateInput extends React.Component {
   state = {
     value: '',
-    savedValue: '',
-    userFormat: ''
+    savedValue: ''
   };
 
   monat = new Monat(MDY, YMD);
 
   setValue(value, keepDelims = false) {
-    const transform = keepDelims ? format => format.parseDelimited(value) : format => format.parse(value);
-    const parsed = this.monat.formats.map(transform).filter(format => format.validYear());
-    const parsedValue = parsed.length === 1 ? parsed[0].getFormatted() : sanitizeDelims(value);
-    this.setState({ value: parsedValue });
+    this.setState({ value: this.monat.parse(value, keepDelims) });
   }
 
   insertDelim(value, position, formatName) {
-    const parsed = [];
-    this.monat.formats.forEach(format => {
-      const delimited = format.insertDelim(value, position);
-      const parsedFormat = format.parse(delimited.value);
-      if (delimited.validPosition) {
-        parsed.push(parsedFormat);
-      }
-    });
-    if (parsed.length === 1) {
-      this.setState({ value: parsed[0].format(), userFormat: parsed[0].id });
-    }
-    else {
-      const namedFormat = parsed.find(format => format.id === formatName);
-      if (namedFormat) {
-        this.setState({ value: namedFormat.format(), userFormat: namedFormat.id });
-      }
-    }
+    this.setState({ value: this.monat.insertDelim(value, position, formatName) });
   }
 
   handleChange = e => {
@@ -64,7 +44,7 @@ class DateInput extends React.Component {
         e.preventDefault();
       }
       else if (key === 'Backspace' || code === 8) {
-        if (delimPattern.test(value.charAt(selectionStart - 1))) {
+        if (this.monat.isDelim(value.charAt(selectionStart - 1))) {
           this.setCaretPosition(e.target, selectionStart - 1);
         }
       }
@@ -82,10 +62,7 @@ class DateInput extends React.Component {
   }
 
   handleBlur = e => {
-    const parsed = this.monat.formats.map(format => format.parse(e.target.value)).filter(format => format.validYear());
-    if (parsed.length === 1) {
-      this.setState({ value: parsed[0].getFormatted() });
-    }
+    this.setState({ value: this.monat.setCompleted(e.target.value) });
   }
 
   setCaretPosition(elem, position) {

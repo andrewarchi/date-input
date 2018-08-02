@@ -1,6 +1,6 @@
 import React from 'react';
 import Input from '@material-ui/core/Input';
-import { Monat, MonatFormat, delimPattern, sanitizeDelims } from './dateFormat';
+import { Monat, MonatFormat, delimPattern, sanitizeDelims } from './monat';
 
 class DateInput extends React.Component {
   state = {

@@ -1,3 +1,3 @@
-# React Date Input
+# Monat
 
-A React auto-formatting date input that recognizes a variety of formats.
+An auto-formatting date input library that recognizes a variety of formats. Integrates with React components or plain JavaScript.

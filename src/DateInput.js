@@ -10,22 +10,14 @@ class DateInput extends React.Component {
 
   monat = new Monat(MDY, YMD);
 
-  setValue(value, keepDelims = false) {
-    this.setState({ value: this.monat.parse(value, keepDelims) });
-  }
-
-  insertDelim(value, position, formatName) {
-    this.setState({ value: this.monat.insertDelim(value, position, formatName) });
-  }
-
   handleChange = e => {
-    this.setValue(e.target.value);
+    this.setState({ value: this.monat.parseNumeric(e.target.value) });
   }
 
   handlePaste = e => {
     if (this.state.value === '' || (e.target.selectionStart === 0 && e.target.selectionEnd === e.target.value.length)) {
       const clipboard = e.clipboardData.getData('Text');
-      this.setValue(clipboard, true);
+      this.setState({ value: this.monat.parseDelimited(clipboard) });
     }
     e.preventDefault();
   }
@@ -36,11 +28,11 @@ class DateInput extends React.Component {
       const key = e.key;
       const code = e.keyCode;
       if (key === '/' || code === 111 || code === 191) {
-        this.insertDelim(value, selectionStart, 'mm/dd/yyyy');
+        this.setState({ value: this.monat.insertDelim(value, selectionStart, '/') });
         e.preventDefault();
       }
       else if (key === '-' || code === 109 || code === 189) {
-        this.insertDelim(value, selectionStart, 'yyyy-mm-dd');
+        this.setState({ value: this.monat.insertDelim(value, selectionStart, '-') });
         e.preventDefault();
       }
       else if (key === 'Backspace' || code === 8) {

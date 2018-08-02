@@ -8,18 +8,28 @@ export class Monat {
     this.userFormat = '';
   }
 
-  parse(value, keepDelims = false) {
-    const transform = keepDelims ? format => format.parseDelimited(value) : format => format.parse(value);
-    const parsed = this.formats.map(transform).filter(format => format.validYear());
-    const parsedValue = parsed.length === 1 ? parsed[0].getFormatted() : sanitizeDelims(value);
+  parseNumeric(date) {
+    const parsed = this.formats.map(format => format.parseNumeric(date)).filter(format => format.validYear());
+    const parsedValue = parsed.length === 1 ? parsed[0].getFormatted() : sanitizeDelims(date);
     return parsedValue;
   }
 
-  insertDelim(value, position, formatName) {
+  parseDelimited(date) {
+    const blocks = date.split(delimPattern);
+    if (blocks.length === 1) {
+      return this.parseNumeric(date);
+    }
+    const parsedDates = this.formats.map(format => MonatDate.fromBlocks(format, blocks)).filter(date => date.isValid());
+    return parsedDates.length === 1 ? parsedDates[0].getFormatted() : sanitizeDelims(date);
+  }
+
+  insertDelim(date, position, delim) {
+    position = getSanitizedPosition(date, position);
+    const sanitized = sanitizeDelims(date);
     const parsed = [];
     this.formats.forEach(format => {
-      const delimited = format.insertDelimSanitized(value, position);
-      const parsedFormat = format.parse(delimited.value);
+      const delimited = format.insertDelim(sanitized, position);
+      const parsedFormat = format.parseNumeric(delimited.value);
       if (delimited.validPosition) {
         parsed.push(parsedFormat);
       }
@@ -29,17 +39,17 @@ export class Monat {
       return parsed[0].getFormatted();
     }
     else {
-      const namedFormat = parsed.find(format => format.id === formatName);
-      if (namedFormat) {
-        this.userFormat = namedFormat.id;
-        return namedFormat.getFormatted();
+      const matched = parsed.filter(format => format.delim === delim);
+      if (matched.length === 1) {
+        this.userFormat = matched[0].id;
+        return matched[0].getFormatted();
       }
     }
-    return value;
+    return date;
   }
 
   setCompleted(value) {
-    const parsed = this.formats.map(format => format.parse(value)).filter(format => format.validYear());
+    const parsed = this.formats.map(format => format.parseNumeric(value)).filter(format => format.validYear());
     if (parsed.length === 1) {
       return parsed[0].getFormatted();
     }
@@ -59,10 +69,10 @@ export class MonatFormat {
     this.id = blockFormats.join(delim);
   }
 
-  parse(input) {
+  parseNumeric(input) {
     let value = sanitizeDelims(input);
     let year = '', month = '', day = '';
-    const blocks = this.blockFormats.map((block, i) => {
+    const blocks = this.blockFormats.map(block => {
       switch (block) {
         case 'yyyy': [year, value] = parseYear(value, this.flexibleYear); return year;
         case 'mm': [month, value] = parseMonth(value); return month;
@@ -82,11 +92,21 @@ export class MonatFormat {
       offset += delimited.length - value.length;
       value = delimited;
     }
-    return this.parse(value);
+    return this.parseNumeric(value);
   }
 
-  insertDelimSanitized(value, position) {
-    return insertDelim(sanitizeDelims(value), getSanitizedPosition(value, position), this.blockFormats);
+  insertDelim(date, position) {
+    let blockPos = 0;
+    for (let i = 0; i < this.blockFormats.length; i++) {
+      const block = this.blockFormats[i];
+      if (position > blockPos && position < blockPos + block.length &&
+          block !== 'yyyy' && date.slice(blockPos, position) > 0) {
+        const paddedBlock = date.slice(blockPos, position).padStart(block.length, '0');
+        return { value: date.slice(0, blockPos) + paddedBlock + date.slice(position), validPosition: true };
+      }
+      blockPos += block.length;
+    }
+    return { value: date, validPosition: false };
   }
 
   joinBlocks(blocks) {
@@ -97,17 +117,6 @@ export class MonatFormat {
       }
     }
     return formatted;
-  }
-
-  format(date) {
-    return this.joinBlocks(date.blocks.map((block, i) => {
-      switch (this.blockFormats[i]) {
-        case 'yyyy': return formatYear(block, this.flexibleYear);
-        case 'mm':
-        case 'dd': return block.padStart(2, '0');
-        default: return block;
-      }
-    }));
   }
 }
 
@@ -137,6 +146,19 @@ class MonatDate {
 
   validYear() {
     return (this.format.flexibleYear && this.year.length < 3) || /^20|^19|^[21]?$/.test(this.year);
+  }
+
+  static fromBlocks(format, blocks) {
+    let year = '', month = '', day = '';
+    const formattedBlocks = blocks.map((block, i) => {
+      switch (format.blockFormats[i]) {
+        case 'yyyy': year = formatYear(block, format.flexibleYear); return year;
+        case 'mm': month = block.padStart(2, '0'); return month;
+        case 'dd': day = block.padStart(2, '0'); return day;
+        default: return block;
+      }
+    });
+    return new MonatDate(format, formattedBlocks, year, month, day);
   }
 }
 
@@ -178,20 +200,6 @@ function getDaysInMonth(month, year) {
 
 function isLeapYear(year) {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-}
-
-function insertDelim(value, position, blockFormats) {
-  let blockPos = 0;
-  for (let i = 0; i < blockFormats.length; i++) {
-    const block = blockFormats[i];
-    if (position > blockPos && position < blockPos + block.length &&
-        block !== 'yyyy' && value.slice(blockPos, position) > 0) {
-      const paddedBlock = value.slice(blockPos, position).padStart(block.length, '0');
-      return { value: value.slice(0, blockPos) + paddedBlock + value.slice(position), validPosition: true };
-    }
-    blockPos += block.length;
-  }
-  return { value, validPosition: false };
 }
 
 export function sanitizeDelims(value) {

@@ -3,12 +3,11 @@ import Input from '@material-ui/core/Input';
 import { Monat, MDY, YMD } from './monat';
 
 class DateInput extends React.Component {
+  monat = new Monat(MDY, YMD);
   state = {
     value: '',
     savedValue: ''
   };
-
-  monat = new Monat(MDY, YMD);
 
   handleChange = e => {
     this.setState({ value: this.monat.parseNumeric(e.target.value) });
@@ -27,12 +26,8 @@ class DateInput extends React.Component {
     if (selectionStart === selectionEnd) {
       const key = e.key;
       const code = e.keyCode;
-      if (key === '/' || code === 111 || code === 191) {
-        this.setState({ value: this.monat.insertDelim(value, selectionStart, '/') });
-        e.preventDefault();
-      }
-      else if (key === '-' || code === 109 || code === 189) {
-        this.setState({ value: this.monat.insertDelim(value, selectionStart, '-') });
+      if (key === '/' || code === 111 || code === 191 || key === '-' || code === 109 || code === 189) {
+        this.setState({ value: this.monat.insertDelim(value, selectionStart) });
         e.preventDefault();
       }
       else if (key === 'Backspace' || code === 8) {

@@ -10,13 +10,13 @@ class DateInput extends React.Component {
   };
 
   handleChange = e => {
-    this.setState({ value: this.monat.parseNumeric(e.target.value) });
+    this.setState({ value: this.monat.parseNumeric(e.target.value).getFormatted() });
   }
 
   handlePaste = e => {
     if (this.state.value === '' || (e.target.selectionStart === 0 && e.target.selectionEnd === e.target.value.length)) {
       const clipboard = e.clipboardData.getData('Text');
-      this.setState({ value: this.monat.parseDelimited(clipboard) });
+      this.setState({ value: this.monat.parseDelimited(clipboard).getFormatted() });
     }
     e.preventDefault();
   }
@@ -27,7 +27,7 @@ class DateInput extends React.Component {
       const key = e.key;
       const code = e.keyCode;
       if (key === '/' || code === 111 || code === 191 || key === '-' || code === 109 || code === 189) {
-        this.setState({ value: this.monat.insertDelim(value, selectionStart) });
+        this.setState({ value: this.monat.insertDelim(value, selectionStart).getFormatted() });
         e.preventDefault();
       }
       else if (key === 'Backspace' || code === 8) {
@@ -49,7 +49,7 @@ class DateInput extends React.Component {
   }
 
   handleBlur = e => {
-    this.setState({ value: this.monat.setCompleted(e.target.value) });
+    this.setState({ value: this.monat.setCompleted(e.target.value).getFormatted() });
   }
 
   setCaretPosition(elem, position) {
@@ -67,7 +67,7 @@ class DateInput extends React.Component {
     return (
       <Input
         value={this.state.value}
-        placeholder="M/D/Y or Y/M/D"
+        placeholder="M/D/Y or Y-M-D"
         onChange={this.handleChange}
         onPaste={this.handlePaste}
         onKeyDown={this.handleKeyDown}

@@ -10,8 +10,9 @@ export class Monat {
 
   parseNumeric(date) {
     const parsed = this.formats.map(format => format.parseNumeric(date)).filter(format => format.validYear());
-    const parsedValue = parsed.length === 1 ? parsed[0].getFormatted() : sanitizeDelims(date);
-    return parsedValue;
+    return parsed.length === 1
+      ? parsed[0]
+      : MonatDate.fromString(sanitizeDelims(date));
   }
 
   parseDelimited(date) {
@@ -19,8 +20,10 @@ export class Monat {
     if (blocks.length === 1) {
       return this.parseNumeric(date);
     }
-    const parsedDates = this.formats.map(format => MonatDate.fromBlocks(format, blocks)).filter(date => date.isValid());
-    return parsedDates.length === 1 ? parsedDates[0].getFormatted() : sanitizeDelims(date);
+    const parsed = this.formats.map(format => MonatDate.fromBlocks(date, format, blocks)).filter(date => date.isValid());
+    return parsed.length === 1
+      ? parsed[0]
+      : MonatDate.fromString(sanitizeDelims(date));
   }
 
   insertDelim(date, position) {
@@ -29,17 +32,16 @@ export class Monat {
     const parsed = this.formats.map(format => format.insertDelim(sanitized, sanitizedPosition)).filter(date => date.isValid());
     if (parsed.length === 1) {
       this.userFormat = parsed[0].id;
-      return parsed[0].getFormatted();
+      return parsed[0];
     }
-    return date;
+    return MonatDate.fromString(date);
   }
 
   setCompleted(value) {
-    const parsed = this.formats.map(format => format.parseNumeric(value)).filter(format => format.validYear());
-    if (parsed.length === 1) {
-      return parsed[0].getFormatted();
-    }
-    return value;
+    const parsed = this.formats.map(format => format.parseNumeric(value)).filter(format => format.isValid());
+    return parsed.length === 1
+      ? parsed[0]
+      : MonatDate.fromString(value);
   }
 
   isDelim(char) {
@@ -66,7 +68,7 @@ export class MonatFormat {
         default: return '';
       }
     });
-    return new MonatDate(this, blocks, year, month, day);
+    return new MonatDate(input, this, blocks, year, month, day);
   }
 
   insertDelim(date, position) {
@@ -84,7 +86,7 @@ export class MonatFormat {
         blockPos += blockSize;
       }
     }
-    return MonatDate.fromBlocks(this, blocks);
+    return MonatDate.fromBlocks(date, this, blocks);
   }
 
   joinBlocks(blocks) {
@@ -99,7 +101,8 @@ export class MonatFormat {
 }
 
 class MonatDate {
-  constructor(format, blocks, year, month, day) {
+  constructor(value, format, blocks, year, month, day) {
+    this.value = value;
     this.format = format;
     this.blocks = blocks;
     this.year = year;
@@ -108,13 +111,13 @@ class MonatDate {
   }
 
   getFormatted() {
-    return this.format.joinBlocks(this.blocks);
+    return this.format ? this.format.joinBlocks(this.blocks) : this.value;
   }
 
   isValid() {
     return (this.month === '' || (this.month >= 1 && this.month <= 12)) &&
       (this.day === '' || (this.day >= 1 && this.day <= getDaysInMonth(+this.month, +this.year))) &&
-      (this.year === '' || (this.year >= 1900 && this.year <= 2099));
+      (this.year === '' || this.validYear());
   }
 
   isValidComplete() {
@@ -125,7 +128,11 @@ class MonatDate {
     return (this.format.flexibleYear && this.year.length < 3) || /^20|^19|^[21]?$/.test(this.year);
   }
 
-  static fromBlocks(format, blocks) {
+  toDateString() {
+    return `${this.year}-${this.month}-${this.day}`;
+  }
+
+  static fromBlocks(value, format, blocks) {
     let year = '', month = '', day = '';
     const formattedBlocks = blocks.map((block, i) => {
       switch (format.blockFormats[i]) {
@@ -135,7 +142,11 @@ class MonatDate {
         default: return block;
       }
     });
-    return new MonatDate(format, formattedBlocks, year, month, day);
+    return new MonatDate(value, format, formattedBlocks, year, month, day);
+  }
+
+  static fromString(value) {
+    return new MonatDate(value, null, [], '', '', '');
   }
 }
 

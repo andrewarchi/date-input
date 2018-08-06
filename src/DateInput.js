@@ -6,17 +6,22 @@ class DateInput extends React.Component {
   monat = new Monat(MDY, YMD);
   state = {
     value: '',
-    savedValue: ''
+    savedValue: '',
+    date: {}
   };
 
+  setDate(date) {
+    this.setState({ value: date.getFormatted(), date });
+  }
+
   handleChange = e => {
-    this.setState({ value: this.monat.parseNumeric(e.target.value).getFormatted() });
+    this.setDate(this.monat.parseNumeric(e.target.value));
   }
 
   handlePaste = e => {
     if (this.state.value === '' || (e.target.selectionStart === 0 && e.target.selectionEnd === e.target.value.length)) {
       const clipboard = e.clipboardData.getData('Text');
-      this.setState({ value: this.monat.parseDelimited(clipboard).getFormatted() });
+      this.setDate(this.monat.parseDelimited(clipboard));
     }
     e.preventDefault();
   }
@@ -27,7 +32,7 @@ class DateInput extends React.Component {
       const key = e.key;
       const code = e.keyCode;
       if (key === '/' || code === 111 || code === 191 || key === '-' || code === 109 || code === 189) {
-        this.setState({ value: this.monat.insertDelim(value, selectionStart).getFormatted() });
+        this.setDate(this.monat.insertDelim(value, selectionStart));
         e.preventDefault();
       }
       else if (key === 'Backspace' || code === 8) {
@@ -49,7 +54,7 @@ class DateInput extends React.Component {
   }
 
   handleBlur = e => {
-    this.setState({ value: this.monat.setCompleted(e.target.value).getFormatted() });
+    this.setDate(this.monat.setCompleted(e.target.value));
   }
 
   setCaretPosition(elem, position) {

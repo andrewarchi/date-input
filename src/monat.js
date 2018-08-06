@@ -129,7 +129,7 @@ class MonatDate {
   }
 
   toDateString() {
-    return `${this.year}-${this.month}-${this.day}`;
+    return this.isValidComplete() ? `${this.year}-${this.month}-${this.day}` : '';
   }
 
   static fromBlocks(value, format, blocks) {

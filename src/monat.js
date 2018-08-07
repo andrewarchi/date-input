@@ -40,11 +40,11 @@ export class Monat {
 }
 
 export class MonatFormat {
-  constructor(blocks, delim, flexibleYear) {
-    this.blocks = blocks;
+  constructor(format, delim, flexibleYear) {
+    this.blocks = format.split(delim);
     this.delim = delim;
     this.flexibleYear = flexibleYear;
-    this.id = blocks.join(delim);
+    this.id = format;
   }
 
   parseNumeric(input) {
@@ -208,5 +208,5 @@ function getSanitizedPosition(value, position) {
   return position - (value.slice(0, position).match(sanitizePattern) || []).length;
 }
 
-export const MDY = new MonatFormat(['mm', 'dd', 'yyyy'], '/', true);
-export const YMD = new MonatFormat(['yyyy', 'mm', 'dd'], '-', false);
+export const MDY = new MonatFormat('mm/dd/yyyy', '/', true);
+export const YMD = new MonatFormat('yyyy-mm-dd', '-', false);

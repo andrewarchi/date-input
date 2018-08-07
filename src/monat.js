@@ -9,7 +9,7 @@ export class Monat {
   }
 
   parseNumeric(date) {
-    const parsed = this.formats.map(format => format.parseNumeric(date)).filter(format => format.validYear());
+    const parsed = this.formats.map(format => format.parseNumeric(date)).filter(format => format.isValidPartial());
     return parsed.length === 1
       ? parsed[0]
       : MonatDate.fromString(sanitizeDelims(date));
@@ -20,7 +20,7 @@ export class Monat {
     if (blocks.length === 1) {
       return this.parseNumeric(date);
     }
-    const parsed = this.formats.map(format => MonatDate.fromBlocks(date, format, blocks)).filter(date => date.isValid());
+    const parsed = this.formats.map(format => new MonatDate(date, format, blocks).toComplete()).filter(date => date.isValidPartial());
     return parsed.length === 1
       ? parsed[0]
       : MonatDate.fromString(sanitizeDelims(date));
@@ -29,7 +29,7 @@ export class Monat {
   insertDelim(date, position) {
     const sanitized = sanitizeDelims(date);
     const sanitizedPosition = getSanitizedPosition(date, position);
-    const parsed = this.formats.map(format => format.insertDelim(sanitized, sanitizedPosition)).filter(date => date.isValid());
+    const parsed = this.formats.map(format => format.insertDelim(sanitized, sanitizedPosition)).filter(date => date.isValidPartial());
     if (parsed.length === 1) {
       this.userFormat = parsed[0].id;
       return parsed[0];
@@ -38,7 +38,7 @@ export class Monat {
   }
 
   setCompleted(value) {
-    const parsed = this.formats.map(format => format.parseNumeric(value)).filter(format => format.isValid());
+    const parsed = this.formats.map(format => format.parseNumeric(value)).filter(format => format.isValidPartial());
     return parsed.length === 1
       ? parsed[0]
       : MonatDate.fromString(value);
@@ -50,17 +50,17 @@ export class Monat {
 }
 
 export class MonatFormat {
-  constructor(blockFormats, delim, flexibleYear) {
-    this.blockFormats = blockFormats;
+  constructor(blocks, delim, flexibleYear) {
+    this.blocks = blocks;
     this.delim = delim;
     this.flexibleYear = flexibleYear;
-    this.id = blockFormats.join(delim);
+    this.id = blocks.join(delim);
   }
 
   parseNumeric(input) {
     let value = sanitizeDelims(input);
     let year = '', month = '', day = '';
-    const blocks = this.blockFormats.map(block => {
+    const blocks = this.blocks.map(block => {
       switch (block) {
         case 'yyyy': [year, value] = parseYear(value, this.flexibleYear); return year;
         case 'mm': [month, value] = parseMonth(value); return month;
@@ -74,11 +74,14 @@ export class MonatFormat {
   insertDelim(date, position) {
     const blocks = [];
     let blockPos = 0;
-    for (let i = 0; i < this.blockFormats.length; i++) {
-      const blockSize = this.blockFormats[i].length;
+    for (let i = 0; i < this.blocks.length; i++) {
+      const blockSize = this.blocks[i].length;
       if (position > blockPos && position <= blockPos + blockSize) {
         const block = date.slice(blockPos, position);
-        blocks.push(this.blockFormats[i] === 'yyyy' ? formatYear(block, this.flexibleYear, true) : block.padStart(blockSize, '0'));
+        const formatted = this.blocks[i] === 'yyyy'
+          ? (this.flexibleYear ? expandYear(block) : block)
+          : block.padStart(blockSize, '0');
+        blocks.push(formatted);
         blockPos = position;
       }
       else {
@@ -86,17 +89,7 @@ export class MonatFormat {
         blockPos += blockSize;
       }
     }
-    return MonatDate.fromBlocks(date, this, blocks);
-  }
-
-  joinBlocks(blocks) {
-    let formatted = blocks[0];
-    for (let i = 1; i < blocks.length; i++) {
-      if (blocks[i] !== '' || blocks[i - 1].length === this.blockFormats[i - 1].length) {
-        formatted += this.delim + blocks[i];
-      }
-    }
-    return formatted;
+    return new MonatDate(date, this, blocks);
   }
 }
 
@@ -108,41 +101,65 @@ class MonatDate {
     this.year = year;
     this.month = month;
     this.day = day;
+    if (!year && !month && !day) {
+      blocks.forEach((block, i) => {
+        switch (format.blocks[i]) {
+          case 'yyyy': this.year = block; return;
+          case 'mm': this.month = block; return;
+          case 'dd': this.day = block; return;
+          default:
+        }
+      })
+    }
   }
 
-  getFormatted() {
-    return this.format ? this.format.joinBlocks(this.blocks) : this.value;
+  toFormat(format) {
+    const blocks = format.blocks.map(block => {
+      switch (block) {
+        case 'yyyy': return this.year;
+        case 'mm': return this.month;
+        case 'dd': return this.day;
+        default: return '';
+      }
+    });
+    return new MonatDate(this.value, format, blocks, this.year, this.month, this.day);
   }
 
-  isValid() {
-    return (this.month === '' || (this.month >= 1 && this.month <= 12)) &&
-      (this.day === '' || (this.day >= 1 && this.day <= getDaysInMonth(+this.month, +this.year))) &&
-      (this.year === '' || this.validYear());
+  toString() {
+    if (!this.format) { return this.value; } // TEMP
+    let formatted = this.blocks[0];
+    for (let i = 1; i < this.blocks.length; i++) {
+      if (this.blocks[i] !== '' || this.blocks[i - 1].length === this.format.blocks[i - 1].length) {
+        formatted += this.format.delim + this.blocks[i];
+      }
+    }
+    return formatted;
   }
 
-  isValidComplete() {
-    return this.month.length === 2 && this.day.length === 2 && this.year.length === 4 && this.isValid();
-  }
-
-  validYear() {
-    return (this.format.flexibleYear && this.year.length < 3) || /^20|^19|^[21]?$/.test(this.year);
-  }
-
-  toDateString() {
-    return this.isValidComplete() ? `${this.year}-${this.month}-${this.day}` : '';
-  }
-
-  static fromBlocks(value, format, blocks) {
+  toComplete() {
     let year = '', month = '', day = '';
-    const formattedBlocks = blocks.map((block, i) => {
-      switch (format.blockFormats[i]) {
-        case 'yyyy': year = formatYear(block, format.flexibleYear); return year;
-        case 'mm': month = formatMonthDay(block); return month;
-        case 'dd': day = formatMonthDay(block); return day;
+    const blocks = this.blocks.map((block, i) => {
+      switch (this.format.blocks[i]) {
+        case 'yyyy': year = this.format.flexibleYear ? expandYear(block) : block; return year;
+        case 'mm': month = this.month.padStart(2, '0'); return month;
+        case 'dd': day = this.day.padStart(2, '0'); return day;
         default: return block;
       }
     });
-    return new MonatDate(value, format, formattedBlocks, year, month, day);
+    return new MonatDate(this.format, blocks, year, month, day);
+  }
+
+  isValidComplete() {
+    const month = +this.month;
+    const day = +this.day;
+    const year = +this.year;
+    return this.month.length === 2 && month >= 1 && month <= 12 &&
+      this.day.length === 2 && day >= 1 && day <= getDaysInMonth(month, year) &&
+      this.year.length === 4 && year >= 1900 && year <= 2099;
+  }
+
+  isValidPartial() {
+    return (this.format.flexibleYear && this.year.length < 3) || /^20|^19|^[21]?$/.test(this.year);
   }
 
   static fromString(value) {
@@ -150,10 +167,17 @@ class MonatDate {
   }
 }
 
-function formatYear(year, flexible, forceExpand = false) {
-  if (flexible && year.length === 2 && (forceExpand || (year !== '20' && year !== '19'))) {
+function expandYear(year) {
+  if (year && year.length === 2) {
     const maxYear = (new Date().getFullYear() % 100) + 10;
     return (year <= maxYear ? '20' : '19') + year;
+  }
+  return year;
+}
+
+function formatYear(year, flexible, forceExpand = false) {
+  if (flexible && (forceExpand || (year !== '20' && year !== '19'))) {
+    return expandYear(year);
   }
   return year;
 }

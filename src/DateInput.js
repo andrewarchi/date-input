@@ -11,7 +11,7 @@ class DateInput extends React.Component {
   };
 
   setDate(date) {
-    this.setState({ value: date.getFormatted(), date });
+    this.setState({ value: date.toString(), date });
   }
 
   handleChange = e => {

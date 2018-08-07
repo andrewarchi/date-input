@@ -1,6 +1,6 @@
 import React from 'react';
 import Input from '@material-ui/core/Input';
-import { Monat, MDY, YMD } from './monat';
+import { Monat, MDY, YMD, sanitizeDelims } from './monat';
 
 class DateInput extends React.Component {
   monat = new Monat(MDY, YMD);
@@ -10,18 +10,23 @@ class DateInput extends React.Component {
     date: {}
   };
 
-  setDate(date) {
-    this.setState({ value: date.toString(), date });
+  setDate(dates, value) {
+    if (dates.length === 1) {
+      this.setState({ value: dates[0].toString(), date: dates[0] });
+    }
+    else {
+      this.setState({ value: sanitizeDelims(value), date: {} });
+    }
   }
 
   handleChange = e => {
-    this.setDate(this.monat.parseNumeric(e.target.value));
+    this.setDate(this.monat.parseNumeric(e.target.value), e.target.value);
   }
 
   handlePaste = e => {
     if (this.state.value === '' || (e.target.selectionStart === 0 && e.target.selectionEnd === e.target.value.length)) {
       const clipboard = e.clipboardData.getData('Text');
-      this.setDate(this.monat.parseDelimited(clipboard));
+      this.setDate(this.monat.parseDelimited(clipboard), clipboard);
     }
     e.preventDefault();
   }
@@ -32,7 +37,7 @@ class DateInput extends React.Component {
       const key = e.key;
       const code = e.keyCode;
       if (key === '/' || code === 111 || code === 191 || key === '-' || code === 109 || code === 189) {
-        this.setDate(this.monat.insertDelim(value, selectionStart));
+        this.setDate(this.monat.insertDelim(value, selectionStart), value);
         e.preventDefault();
       }
       else if (key === 'Backspace' || code === 8) {
@@ -54,7 +59,7 @@ class DateInput extends React.Component {
   }
 
   handleBlur = e => {
-    this.setDate(this.monat.setCompleted(e.target.value));
+    this.setDate(this.monat.setCompleted(e.target.value), e.target.value);
   }
 
   setCaretPosition(elem, position) {

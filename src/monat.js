@@ -9,10 +9,7 @@ export class Monat {
   }
 
   parseNumeric(date) {
-    const parsed = this.formats.map(format => format.parseNumeric(date)).filter(format => format.isValidPartial());
-    return parsed.length === 1
-      ? parsed[0]
-      : MonatDate.fromString(sanitizeDelims(date));
+    return this.formats.map(format => format.parseNumeric(date)).filter(format => format.isValidPartial());
   }
 
   parseDelimited(date) {
@@ -20,10 +17,7 @@ export class Monat {
     if (blocks.length === 1) {
       return this.parseNumeric(date);
     }
-    const parsed = this.formats.map(format => new MonatDate(date, format, blocks).toComplete()).filter(date => date.isValidPartial());
-    return parsed.length === 1
-      ? parsed[0]
-      : MonatDate.fromString(sanitizeDelims(date));
+    return this.formats.map(format => new MonatDate(date, format, blocks).toComplete()).filter(date => date.isValidPartial());
   }
 
   insertDelim(date, position) {
@@ -32,16 +26,12 @@ export class Monat {
     const parsed = this.formats.map(format => format.insertDelim(sanitized, sanitizedPosition)).filter(date => date.isValidPartial());
     if (parsed.length === 1) {
       this.userFormat = parsed[0].id;
-      return parsed[0];
     }
-    return MonatDate.fromString(date);
+    return parsed;
   }
 
   setCompleted(value) {
-    const parsed = this.formats.map(format => format.parseNumeric(value)).filter(format => format.isValidPartial());
-    return parsed.length === 1
-      ? parsed[0]
-      : MonatDate.fromString(value);
+    return this.formats.map(format => format.parseNumeric(value)).filter(format => format.isValidPartial());
   }
 
   isDelim(char) {
@@ -125,17 +115,6 @@ class MonatDate {
     return new MonatDate(this.value, format, blocks, this.year, this.month, this.day);
   }
 
-  toString() {
-    if (!this.format) { return this.value; } // TEMP
-    let formatted = this.blocks[0];
-    for (let i = 1; i < this.blocks.length; i++) {
-      if (this.blocks[i] !== '' || this.blocks[i - 1].length === this.format.blocks[i - 1].length) {
-        formatted += this.format.delim + this.blocks[i];
-      }
-    }
-    return formatted;
-  }
-
   toComplete() {
     let year = '', month = '', day = '';
     const blocks = this.blocks.map((block, i) => {
@@ -149,6 +128,17 @@ class MonatDate {
     return new MonatDate(this.format, blocks, year, month, day);
   }
 
+  toString() {
+    if (!this.format) { return this.value; } // TEMP
+    let formatted = this.blocks[0];
+    for (let i = 1; i < this.blocks.length; i++) {
+      if (this.blocks[i] !== '' || this.blocks[i - 1].length === this.format.blocks[i - 1].length) {
+        formatted += this.format.delim + this.blocks[i];
+      }
+    }
+    return formatted;
+  }
+
   isValidComplete() {
     const month = +this.month;
     const day = +this.day;
@@ -160,10 +150,6 @@ class MonatDate {
 
   isValidPartial() {
     return (this.format.flexibleYear && this.year.length < 3) || /^20|^19|^[21]?$/.test(this.year);
-  }
-
-  static fromString(value) {
-    return new MonatDate(value, null, [], '', '', '');
   }
 }
 
@@ -180,10 +166,6 @@ function formatYear(year, flexible, forceExpand = false) {
     return expandYear(year);
   }
   return year;
-}
-
-function formatMonthDay(block) {
-  return block !== '' ? block.padStart(2, '0') : block;
 }
 
 function parseYear(input, flexible) {
@@ -218,7 +200,7 @@ function isLeapYear(year) {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 }
 
-function sanitizeDelims(value) {
+export function sanitizeDelims(value) {
   return value.replace(sanitizePattern, '');
 }
 

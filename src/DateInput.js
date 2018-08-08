@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import Input from '@material-ui/core/Input';
 import { Monat, MDY, YMD, sanitizeDelims } from './monat';
 
@@ -113,5 +114,10 @@ class DateInput extends React.Component {
     );
   }
 }
+
+DateInput.propTypes = {
+  onChange: PropTypes.func,
+  onDateChange: PropTypes.func
+};
 
 export default DateInput;

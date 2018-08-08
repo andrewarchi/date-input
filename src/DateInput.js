@@ -18,8 +18,12 @@ class DateInput extends React.Component {
     const value = date ? date.toString() : sanitizeDelims(input);
 
     e.target.value = value;
-    this.props.onChange(e);
-    this.handleDateChange(this.state.date, date);
+    if (this.props.onChange) {
+      this.props.onChange(e);
+    }
+    if (this.props.onDateChange) {
+      this.handleDateChange(this.state.date, date);
+    }
     this.setState({ date, value });
   }
 

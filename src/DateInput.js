@@ -5,35 +5,41 @@ import { Monat, MDY, YMD, sanitizeDelims } from './monat';
 class DateInput extends React.Component {
   monat = new Monat(MDY, YMD);
   state = {
-    date: {},
-    savedDate: {},
+    date: null,
+    savedDate: null,
     value: '',
     userFormat: ''
   };
 
-  setDate(dates, value) {
+  setDate(e, dates, input) {
     const { userFormat } = this.state;
-    if (dates.length === 1) {
-      this.setState({ date: dates[0], value: dates[0].toString() });
-      return;
-    }
-    const date = dates.find(date => date.format.name === userFormat);
-    if (userFormat && date) {
-      this.setState({ date, value: date.toString() });
-    }
-    else {
-      this.setState({ date: {}, value: sanitizeDelims(value) });
+    const date = dates.length === 1 ? dates[0] : dates.find(date => date.format.name === userFormat);
+    const value = date ? date.toString() : sanitizeDelims(input);
+
+    e.target.value = value;
+    this.props.onChange(e);
+    this.handleDateChange(this.state.date, date);
+    this.setState({ date, value });
+  }
+
+  handleDateChange(prevDate, nextDate) {
+    prevDate = prevDate ? prevDate.toComplete() : null;
+    nextDate = nextDate ? nextDate.toComplete() : null;
+    const prevDateStr = prevDate && prevDate.isValidComplete() ? prevDate.toFormat(MDY).toString() : '';
+    const nextDateStr = nextDate && nextDate.isValidComplete() ? nextDate.toFormat(MDY).toString() : '';
+    if (prevDateStr !== nextDateStr) {
+      this.props.onDateChange(nextDateStr, nextDate);
     }
   }
 
   handleChange = e => {
-    this.setDate(this.monat.parseNumeric(e.target.value), e.target.value);
+    this.setDate(e, this.monat.parseNumeric(e.target.value), e.target.value);
   }
 
   handlePaste = e => {
     if (this.state.value === '' || (e.target.selectionStart === 0 && e.target.selectionEnd === e.target.value.length)) {
       const clipboard = e.clipboardData.getData('Text');
-      this.setDate(this.monat.parseDelimited(clipboard), clipboard);
+      this.setDate(e, this.monat.parseDelimited(clipboard), clipboard);
     }
     e.preventDefault();
   }
@@ -56,7 +62,6 @@ class DateInput extends React.Component {
             this.setState({ date, value: date.toString() });
           }
         }
-        e.preventDefault();
       }
       else if (key === 'Backspace' || code === 8) {
         if (this.monat.isDelim(value.charAt(selectionStart - 1))) {
@@ -77,7 +82,10 @@ class DateInput extends React.Component {
   }
 
   handleBlur = e => {
-    this.setDate(this.monat.setCompleted(e.target.value), e.target.value);
+    const dates = this.monat.setCompleted(e.target.value);
+    if (dates.length === 1) {
+      this.setState({ date: dates[0], value: dates[0].toString() });
+    }
   }
 
   setCaretPosition(elem, position) {

@@ -17,7 +17,7 @@ export class Monat {
     if (blocks.length === 1) {
       return this.parseNumeric(date);
     }
-    return this.formats.map(format => new MonatDate(format, blocks).toComplete()).filter(date => date.isValidPartial());
+    return this.formats.map(format => new MonatDate(format, blocks).toComplete()).filter(date => date.isValidComplete());
   }
 
   insertDelim(date, position) {
@@ -215,13 +215,13 @@ function validDay(day, month, year) {
 }
 
 function validYearPartial(year, flexibleYear) {
-  return (flexibleYear && year.length <= 2) || (year.length <= 4 && /^20|^19|^[21]?$/.test(year));
+  return !year || (flexibleYear && year.length <= 2) || (year.length <= 4 && /^20|^19|^[21]?$/.test(year));
 }
 function validMonthPartial(month) {
-  return month.length <= 1 || validMonth(month);
+  return !month || month.length <= 1 || validMonth(month);
 }
 function validDayPartial(day, month, year) {
-  return day.length <= 1 || validDay(day, month, year);
+  return !day || day.length <= 1 || validDay(day, month, year);
 }
 
 function getDaysInMonth(month, year) {

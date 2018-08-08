@@ -17,7 +17,7 @@ export class Monat {
     if (blocks.length === 1) {
       return this.parseNumeric(date);
     }
-    return this.formats.map(format => new MonatDate(date, format, blocks).toComplete()).filter(date => date.isValidPartial());
+    return this.formats.map(format => new MonatDate(format, blocks).toComplete()).filter(date => date.isValidPartial());
   }
 
   insertDelim(date, position) {
@@ -26,13 +26,13 @@ export class Monat {
     const parsed = this.formats.map(format => format.insertDelim(sanitized, sanitizedPosition))
       .filter(date => date && date.isValidPartial());
     if (parsed.length === 1) {
-      this.userFormat = parsed[0].id;
+      this.userFormat = parsed[0].name;
     }
     return parsed;
   }
 
   setCompleted(value) {
-    return this.formats.map(format => format.parseNumeric(value)).filter(format => format.isValidPartial());
+    return this.formats.map(format => format.parseNumeric(value).toComplete()).filter(format => format.isValidPartial());
   }
 
   isDelim(char) {
@@ -45,7 +45,7 @@ export class MonatFormat {
     this.blocks = format.split(delim);
     this.delim = delim;
     this.flexibleYear = flexibleYear;
-    this.id = format;
+    this.name = format;
     this.yearIndex = this.blocks.indexOf('yyyy');
     this.monthIndex = this.blocks.indexOf('mm');
     this.dayIndex = this.blocks.indexOf('dd');
@@ -62,7 +62,7 @@ export class MonatFormat {
         default: return '';
       }
     });
-    return new MonatDate(input, this, blocks, year, month, day);
+    return new MonatDate(this, blocks, year, month, day);
   }
 
   insertDelim(date, position) {
@@ -85,19 +85,18 @@ export class MonatFormat {
       }
       blocks.push(block);
     }
-    return new MonatDate(date, this, blocks);
+    return new MonatDate(this, blocks);
   }
 }
 
 class MonatDate {
-  constructor(value, format, blocks, year, month, day) {
-    this.value = value;
+  constructor(format, blocks, year, month, day) {
     this.format = format;
     this.blocks = blocks;
     this.year = year;
     this.month = month;
     this.day = day;
-    if (!year && !month && !day) {
+    if (!year && !month && !day && blocks) {
       blocks.forEach((block, i) => {
         switch (format.blocks[i]) {
           case 'yyyy': this.year = block; return;
@@ -118,7 +117,7 @@ class MonatDate {
         default: return '';
       }
     });
-    return new MonatDate(this.value, format, blocks, this.year, this.month, this.day);
+    return new MonatDate(format, blocks, this.year, this.month, this.day);
   }
 
   toComplete() {
@@ -129,7 +128,6 @@ class MonatDate {
   }
 
   toString() {
-    if (!this.format) { return this.value; } // TEMP
     let formatted = this.blocks[0];
     for (let i = 1; i < this.blocks.length; i++) {
       if (this.blocks[i] !== '' || this.blocks[i - 1].length === this.format.blocks[i - 1].length) {

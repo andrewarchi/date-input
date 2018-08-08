@@ -5,17 +5,24 @@ import { Monat, MDY, YMD, sanitizeDelims } from './monat';
 class DateInput extends React.Component {
   monat = new Monat(MDY, YMD);
   state = {
+    date: {},
+    savedDate: {},
     value: '',
-    savedValue: '',
-    date: {}
+    userFormat: ''
   };
 
   setDate(dates, value) {
+    const { userFormat } = this.state;
     if (dates.length === 1) {
-      this.setState({ value: dates[0].toString(), date: dates[0] });
+      this.setState({ date: dates[0], value: dates[0].toString() });
+      return;
+    }
+    const date = dates.find(date => date.format.name === userFormat);
+    if (userFormat && date) {
+      this.setState({ date, value: date.toString() });
     }
     else {
-      this.setState({ value: sanitizeDelims(value), date: {} });
+      this.setState({ date: {}, value: sanitizeDelims(value) });
     }
   }
 
@@ -33,11 +40,22 @@ class DateInput extends React.Component {
 
   handleKeyDown = e => {
     const { value, selectionStart, selectionEnd } = e.target;
+    const { savedDate, userFormat } = this.state;
     if (selectionStart === selectionEnd) {
       const key = e.key;
       const code = e.keyCode;
       if (key === '/' || code === 111 || code === 191 || key === '-' || code === 109 || code === 189) {
-        this.setDate(this.monat.insertDelim(value, selectionStart), value);
+        const dates = this.monat.insertDelim(value, selectionStart);
+        if (dates.length === 1) {
+          const date = dates[0];
+          this.setState({ date, value: date.toString(), userFormat: date.format.name });
+        }
+        else if (userFormat) {
+          const date = dates.find(date => date.format.name === userFormat);
+          if (date) {
+            this.setState({ date, value: date.toString() });
+          }
+        }
         e.preventDefault();
       }
       else if (key === 'Backspace' || code === 8) {
@@ -46,7 +64,7 @@ class DateInput extends React.Component {
         }
       }
       else if (key === 'Escape' || key === 'Esc' || code === 27) {
-        this.setState({ value: this.state.savedValue });
+        this.setState({ date: savedDate, value: savedDate.toString() });
       }
       //key === 'ArrowUp' || code === 38
       //key === 'ArrowDown' || code === 40
@@ -55,7 +73,7 @@ class DateInput extends React.Component {
 
   handleFocus = e => {
     e.target.select();
-    this.setState({ savedValue: this.state.value });
+    this.setState({ savedDate: this.state.date });
   }
 
   handleBlur = e => {

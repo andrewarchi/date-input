@@ -23,7 +23,8 @@ export class Monat {
   insertDelim(date, position) {
     const sanitized = sanitizeDelims(date);
     const sanitizedPosition = getSanitizedPosition(date, position);
-    const parsed = this.formats.map(format => format.insertDelim(sanitized, sanitizedPosition)).filter(date => date.isValidPartial());
+    const parsed = this.formats.map(format => format.insertDelim(sanitized, sanitizedPosition))
+      .filter(date => date && date.isValidPartial());
     if (parsed.length === 1) {
       this.userFormat = parsed[0].id;
     }
@@ -45,6 +46,9 @@ export class MonatFormat {
     this.delim = delim;
     this.flexibleYear = flexibleYear;
     this.id = format;
+    this.yearIndex = this.blocks.indexOf('yyyy');
+    this.monthIndex = this.blocks.indexOf('mm');
+    this.dayIndex = this.blocks.indexOf('dd');
   }
 
   parseNumeric(input) {
@@ -66,18 +70,20 @@ export class MonatFormat {
     let blockPos = 0;
     for (let i = 0; i < this.blocks.length; i++) {
       const blockSize = this.blocks[i].length;
+      let block;
       if (position > blockPos && position <= blockPos + blockSize) {
-        const block = date.slice(blockPos, position);
-        const formatted = this.blocks[i] === 'yyyy'
-          ? (this.flexibleYear ? expandYear(block) : block)
-          : block.padStart(blockSize, '0');
-        blocks.push(formatted);
+        const blockType = this.blocks[i];
+        block = formatBlock(date.slice(blockPos, position), blockType, this.flexibleYear);
+        if (!validBlock(block, blockType, blocks[this.yearIndex], blocks[this.monthIndex], blocks[this.dayIndex])) {
+          return null;
+        }
         blockPos = position;
       }
       else {
-        blocks.push(date.slice(blockPos, blockPos + blockSize));
+        block = date.slice(blockPos, blockPos + blockSize);
         blockPos += blockSize;
       }
+      blocks.push(block);
     }
     return new MonatDate(date, this, blocks);
   }
@@ -116,16 +122,10 @@ class MonatDate {
   }
 
   toComplete() {
-    let year = '', month = '', day = '';
-    const blocks = this.blocks.map((block, i) => {
-      switch (this.format.blocks[i]) {
-        case 'yyyy': year = this.format.flexibleYear ? expandYear(block) : block; return year;
-        case 'mm': month = this.month.padStart(2, '0'); return month;
-        case 'dd': day = this.day.padStart(2, '0'); return day;
-        default: return block;
-      }
-    });
-    return new MonatDate(this.format, blocks, year, month, day);
+    const blocks = this.blocks.map((block, i) =>
+      formatBlock(block, this.format.blocks[i], this.format.flexibleYear)
+    );
+    return new MonatDate(this.format, blocks);
   }
 
   toString() {
@@ -140,30 +140,36 @@ class MonatDate {
   }
 
   isValidComplete() {
-    const month = +this.month;
-    const day = +this.day;
-    const year = +this.year;
-    return this.month.length === 2 && month >= 1 && month <= 12 &&
-      this.day.length === 2 && day >= 1 && day <= getDaysInMonth(month, year) &&
-      this.year.length === 4 && year >= 1900 && year <= 2099;
+    return validYear(this.year) && validMonth(this.month) && validDay(this.day, this.month, this.year);
   }
 
   isValidPartial() {
-    return (this.format.flexibleYear && this.year.length < 3) || /^20|^19|^[21]?$/.test(this.year);
+    return validYearPartial(this.year, this.format.flexibleYear) &&
+      validMonthPartial(this.month) &&
+      validDayPartial(this.day, this.month, this.year);
   }
+}
+
+function formatBlock(block, blockType, flexibleYear) {
+  switch (blockType) {
+    case 'yyyy': return flexibleYear ? expandYear(block) : block;
+    case 'mm': return block.padStart(2, '0');
+    case 'dd': return block.padStart(2, '0');
+    default: return block;
+  }
+}
+
+function formatYear(year, flexible, forceExpand = false) {
+  if (flexible && (forceExpand || (year !== '20' && year !== '19'))) {
+    return expandYear(year);
+  }
+  return year;
 }
 
 function expandYear(year) {
   if (year && year.length === 2) {
     const maxYear = (new Date().getFullYear() % 100) + 10;
     return (year <= maxYear ? '20' : '19') + year;
-  }
-  return year;
-}
-
-function formatYear(year, flexible, forceExpand = false) {
-  if (flexible && (forceExpand || (year !== '20' && year !== '19'))) {
-    return expandYear(year);
   }
   return year;
 }
@@ -189,6 +195,35 @@ function parseDay(input, month, year) {
     return ['0' + input.charAt(0), input.slice(1)];
   }
   return [input.slice(0, 2), input.slice(2)];
+}
+
+function validBlock(block, blockType, year, month, day) {
+  switch (blockType) {
+    case 'yyyy': return validYear(block);
+    case 'mm': return validMonth(block);
+    case 'dd': return validDay(block, month, year);
+    default: return false;
+  }
+}
+
+function validYear(year) {
+  return year.length === 4 && +year >= 1900 && +year <= 2099;
+}
+function validMonth(month) {
+  return month.length === 2 && +month >= 1 && +month <= 12;
+}
+function validDay(day, month, year) {
+  return day.length === 2 && +day >= 1 && +day <= getDaysInMonth(+month, +year);
+}
+
+function validYearPartial(year, flexibleYear) {
+  return (flexibleYear && year.length <= 2) || (year.length <= 4 && /^20|^19|^[21]?$/.test(year));
+}
+function validMonthPartial(month) {
+  return month.length <= 1 || validMonth(month);
+}
+function validDayPartial(day, month, year) {
+  return day.length <= 1 || validDay(day, month, year);
 }
 
 function getDaysInMonth(month, year) {

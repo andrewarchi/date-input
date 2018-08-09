@@ -7,18 +7,25 @@ class DateInput extends React.Component {
   constructor(props) {
     super(props);
     this.monat = new Monat(MDY, YMD);
+    this.state = {
+      ...this.getDateFromProps(props),
+      savedDate: null,
+      userFormat: ''
+    };
+  }
 
+  componentWillReceiveProps(props) {
+    if (this.state.value === '') {
+      this.setState(this.getDateFromProps(props));
+    }
+  }
+
+  getDateFromProps(props) {
     const input = typeof props.value === 'string' ? props.value : '';
     const dates = this.monat.parseDelimited(input);
     const date = dates.length === 1 ? dates[0] : null;
     const value = date ? date.toString() : sanitizeDelims(input);
-
-    this.state = {
-      date,
-      value,
-      savedDate: null,
-      userFormat: ''
-    };
+    return { date, value };
   }
 
   setDate(e, dates, input) {

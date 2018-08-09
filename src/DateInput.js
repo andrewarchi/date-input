@@ -114,7 +114,7 @@ class DateInput extends React.Component {
   }
 
   render() {
-    const { value, onChange, onPaste, onKeyDown, onFocus, onBlur, ...props } = this.props;
+    const { value, onDateChange, onChange, onPaste, onKeyDown, onFocus, onBlur, ...props } = this.props;
     return (
       <Input
         value={this.state.value}

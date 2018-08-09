@@ -11,7 +11,7 @@ class App extends React.Component {
           <h1 className="App-title">Monat</h1>
         </header>
         <section className="App-intro">
-          <DateInput onChange={log('onChange')} onDateChange={log('onDateChange')} />
+          <DateInput value="1/2/34" onChange={log('onChange')} onDateChange={log('onDateChange')} />
         </section>
       </div>
     );

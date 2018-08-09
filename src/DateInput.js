@@ -4,13 +4,22 @@ import Input from '@material-ui/core/Input';
 import { Monat, MDY, YMD, sanitizeDelims } from './monat';
 
 class DateInput extends React.Component {
-  monat = new Monat(MDY, YMD);
-  state = {
-    date: null,
-    savedDate: null,
-    value: '',
-    userFormat: ''
-  };
+  constructor(props) {
+    super(props);
+    this.monat = new Monat(MDY, YMD);
+
+    const input = typeof props.value === 'string' ? props.value : '';
+    const dates = this.monat.parseDelimited(input);
+    const date = dates.length === 1 ? dates[0] : null;
+    const value = date ? date.toString() : sanitizeDelims(input);
+
+    this.state = {
+      date,
+      value,
+      savedDate: null,
+      userFormat: ''
+    };
+  }
 
   setDate(e, dates, input) {
     const { userFormat } = this.state;
@@ -105,6 +114,7 @@ class DateInput extends React.Component {
   }
 
   render() {
+    const { value, onChange, onPaste, onKeyDown, onFocus, onBlur, ...props } = this.props;
     return (
       <Input
         value={this.state.value}
@@ -114,12 +124,14 @@ class DateInput extends React.Component {
         onKeyDown={this.handleKeyDown}
         onFocus={this.handleFocus}
         onBlur={this.handleBlur}
+        {...props}
       />
     );
   }
 }
 
 DateInput.propTypes = {
+  value: PropTypes.string,
   onChange: PropTypes.func,
   onDateChange: PropTypes.func
 };

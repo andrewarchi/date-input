@@ -15,7 +15,7 @@ class DateInput extends React.Component {
   }
 
   componentWillReceiveProps(props) {
-    if (this.state.value === '') {
+    if (this.state.value !== props.value && this.state.input !== props.input) {
       this.setState(this.getDateFromProps(props));
     }
   }
@@ -25,7 +25,7 @@ class DateInput extends React.Component {
     const dates = this.monat.parseDelimited(input);
     const date = dates.length === 1 ? dates[0] : null;
     const value = date ? date.toString() : sanitizeDelims(input);
-    return { date, value };
+    return { date, value, input: props.value };
   }
 
   setDate(e, dates, input) {
@@ -37,10 +37,13 @@ class DateInput extends React.Component {
     if (this.props.onChange) {
       this.props.onChange(e);
     }
+    if (this.props.onValueChange) {
+      this.props.onValueChange(value, date);
+    }
     if (this.props.onDateChange) {
       this.handleDateChange(this.state.date, date);
     }
-    this.setState({ date, value });
+    this.setState({ date, value, input });
   }
 
   handleDateChange(prevDate, nextDate) {
@@ -79,8 +82,9 @@ class DateInput extends React.Component {
         }
         else if (userFormat) {
           const date = dates.find(date => date.format.name === userFormat);
+          const value = date.toString();
           if (date) {
-            this.setState({ date, value: date.toString() });
+            this.setState({ date, value, input: value });
           }
         }
       }
@@ -90,7 +94,8 @@ class DateInput extends React.Component {
         }
       }
       else if (key === 'Escape' || key === 'Esc' || code === 27) {
-        this.setState({ date: savedDate, value: savedDate.toString() });
+        const value = savedDate.toString();
+        this.setState({ date: savedDate, value, input: value });
       }
       //key === 'ArrowUp' || code === 38
       //key === 'ArrowDown' || code === 40
@@ -105,7 +110,8 @@ class DateInput extends React.Component {
   handleBlur = e => {
     const dates = this.monat.setCompleted(e.target.value);
     if (dates.length === 1) {
-      this.setState({ date: dates[0], value: dates[0].toString() });
+      const value = dates[0].toString();
+      this.setState({ date: dates[0], value, input: value });
     }
   }
 
@@ -121,7 +127,17 @@ class DateInput extends React.Component {
   }
 
   render() {
-    const { value, onDateChange, onChange, onPaste, onKeyDown, onFocus, onBlur, ...props } = this.props;
+    const {
+      value,
+      onValueChange,
+      onDateChange,
+      onChange,
+      onPaste,
+      onKeyDown,
+      onFocus,
+      onBlur,
+      ...props
+    } = this.props;
     return (
       <Input
         value={this.state.value}
@@ -140,6 +156,7 @@ class DateInput extends React.Component {
 DateInput.propTypes = {
   value: PropTypes.string,
   onChange: PropTypes.func,
+  onValueChange: PropTypes.func,
   onDateChange: PropTypes.func
 };
 

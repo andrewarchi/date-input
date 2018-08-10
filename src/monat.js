@@ -205,13 +205,13 @@ function validBlock(block, blockType, year, month, day) {
 }
 
 function validYear(year) {
-  return year.length === 4 && +year >= 1900 && +year <= 2099;
+  return year && year.length === 4 && +year >= 1900 && +year <= 2099;
 }
 function validMonth(month) {
-  return month.length === 2 && +month >= 1 && +month <= 12;
+  return month && month.length === 2 && +month >= 1 && +month <= 12;
 }
 function validDay(day, month, year) {
-  return day.length === 2 && +day >= 1 && +day <= getDaysInMonth(+month, +year);
+  return day && day.length === 2 && +day >= 1 && +day <= getDaysInMonth(+month, +year);
 }
 
 function validYearPartial(year, flexibleYear) {
